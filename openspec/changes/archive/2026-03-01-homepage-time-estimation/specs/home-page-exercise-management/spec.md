@@ -1,3 +1,5 @@
+## MODIFIED
+
 ## Requirement: Home Page Exercise List Display
 The system SHALL display all exercises from `exercises.json` on the home page, organized by their respective groups. The session summary card SHALL display: number of selected exercises, rest time per exercise, and estimated session duration. The "Difficulté" (Difficulty) indicator SHALL NOT be displayed.
 

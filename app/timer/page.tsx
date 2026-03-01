@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, Suspense } from "react";
+import React, { useState, useEffect, useCallback, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import type { SessionStep, SessionState } from "../workout-types";
 import { decodeSession } from "../session-utils";
@@ -26,13 +26,28 @@ function TimerInner() {
             setDecodeError(true);
             return;
         }
+        console.log("Timer: decoded steps", decoded);
+        console.log("Timer: first step", decoded[0]);
+        console.log("Timer: first step kind", decoded[0]?.kind);
         setSteps(decoded);
     }, [searchParams]);
 
     // ── Session state ────────────────────────────────────────────────────
     const [currentStepIndex, setCurrentStepIndex] = useState(0);
     const [sessionState, setSessionState] = useState<SessionState>("running");
-    const [timeLeft, setTimeLeft] = useState<number>(0);
+    // Initialize timeLeft based on the first step when steps are available
+    const initialTimeLeft = useMemo(() => {
+        if (!steps || steps.length === 0) return 0;
+        const firstStep = steps[0];
+        if (firstStep.kind === "work" && firstStep.type === "time") {
+            return firstStep.duration;
+        } else if (firstStep.kind === "rest") {
+            return firstStep.duration;
+        }
+        return 0; // For reps steps, timeLeft is unused
+    }, [steps]);
+
+    const [timeLeft, setTimeLeft] = useState<number>(initialTimeLeft);
     const [isAudioEnabled, setIsAudioEnabled] = useState(true);
 
     const currentStep = steps ? steps[currentStepIndex] : null;
@@ -43,16 +58,18 @@ function TimerInner() {
         ? steps.slice(0, currentStepIndex).filter(s => s.kind === "work").length
         : 0;
 
-    // Initialise timeLeft whenever the step changes
+    // Initialise timeLeft whenever the step changes (but skip first step since it's handled by initial state)
     useEffect(() => {
-        if (!currentStep) return;
+        if (!currentStep || currentStepIndex === 0) return;
+
+        // Normal step transitions (not the first step)
         if (currentStep.kind === "work" && currentStep.type === "time") {
             setTimeLeft(currentStep.duration);
         } else if (currentStep.kind === "rest") {
             setTimeLeft(currentStep.duration);
         }
         // For reps steps, timeLeft is unused
-    }, [currentStep]);
+    }, [currentStep, currentStepIndex]);
 
     // ── Advance to next step ─────────────────────────────────────────────
     const advanceStep = useCallback(() => {
@@ -192,6 +209,22 @@ function TimerInner() {
         : timeLeft;
 
     const timerSuffix = isReps ? "reps" : "sec";
+
+    console.log("Timer display:", {
+        currentStepIndex,
+        currentStep: currentStep ? {
+            kind: currentStep.kind,
+            name: currentStep.name,
+            type: currentStep.type,
+            value: 'duration' in currentStep ? currentStep.duration : ('reps' in currentStep ? currentStep.reps : 'N/A')
+        } : null,
+        timeLeft,
+        timerDisplay,
+        timerSuffix,
+        isRest,
+        isWork,
+        isReps
+    });
 
     // ── Progress numbers ─────────────────────────────────────────────────
     const displayedWorkStep = completedWorkSteps + (isWork ? 1 : 0);

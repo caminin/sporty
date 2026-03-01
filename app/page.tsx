@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Clock, Dumbbell } from "lucide-react";
 import type { Exercise, WorkoutConfig } from "./workout-types";
 import { getWorkoutConfig } from "./exercises-actions";
-import { buildSessionSteps, encodeSession } from "./session-utils";
+import { buildSessionSteps, encodeSession, estimateSessionDuration, formatDuration, testBuildSessionSteps } from "./session-utils";
 
 const STORAGE_KEY = "sporty_session_selection";
 
@@ -77,7 +77,7 @@ function Header() {
 }
 
 function IntensityControl() {
-    const [intensity, setIntensity] = useState(1.2);
+    const [intensity, setIntensity] = useState(1.0);
     return (
         <>
             <div className="mb-6 flex items-center justify-between">
@@ -102,7 +102,7 @@ function IntensityControl() {
     );
 }
 
-function SessionSummary({ restTime, totalExercises }: { restTime: number; totalExercises: number }) {
+function SessionSummary({ restTime, totalExercises, estimatedSeconds }: { restTime: number; totalExercises: number; estimatedSeconds: number }) {
     return (
         <div className="flex items-center justify-between rounded-xl bg-background-light dark:bg-background-dark p-4">
             <div className="text-center">
@@ -120,8 +120,8 @@ function SessionSummary({ restTime, totalExercises }: { restTime: number; totalE
             </div>
             <div className="h-8 w-px bg-slate-200 dark:bg-white/10" />
             <div className="text-center">
-                <p className="text-xs text-slate-500 dark:text-text-muted-dark">Difficulté</p>
-                <p className="text-xl font-bold text-primary">Haute</p>
+                <p className="text-xs text-slate-500 dark:text-text-muted-dark">Durée est.</p>
+                <p className="text-xl font-bold text-primary">{formatDuration(estimatedSeconds)}</p>
             </div>
         </div>
     );
@@ -188,8 +188,8 @@ function ExerciseGroupBlock({
                             {/* Toggle indicator */}
                             <div
                                 className={`flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${isSelected
-                                        ? "border-primary bg-primary"
-                                        : "border-slate-300 dark:border-white/20 bg-transparent"
+                                    ? "border-primary bg-primary"
+                                    : "border-slate-300 dark:border-white/20 bg-transparent"
                                     }`}
                             >
                                 {isSelected && (
@@ -228,9 +228,23 @@ function FloatingActionButton({
         }
         const filteredConfig: WorkoutConfig = { ...config, groups: filteredGroups };
 
+        console.log("Debug: filteredConfig", filteredConfig);
+        console.log("Debug: selectedIds", Array.from(selectedIds));
+        console.log("Debug: config.groups keys", Object.keys(config.groups));
+
         const steps = buildSessionSteps(filteredConfig);
+        console.log("Debug: steps", steps);
+
         if (steps.length === 0) {
             setErrorMsg("Aucun exercice sélectionné ! Cochez des exercices avant de lancer la séance.");
+            setTimeout(() => setErrorMsg(null), 4000);
+            return;
+        }
+
+        // Debug: vérifier que la première étape n'est pas un repos
+        if (steps[0]?.kind === "rest") {
+            console.error("BUG: La séance commence par un repos!", steps);
+            setErrorMsg("Erreur technique: la séance commence par un repos. Contactez le support.");
             setTimeout(() => setErrorMsg(null), 4000);
             return;
         }
@@ -265,6 +279,9 @@ export default function BadmintonSessionPage() {
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
     useEffect(() => {
+        // Test buildSessionSteps function
+        testBuildSessionSteps();
+
         getWorkoutConfig().then((cfg) => {
             setConfig(cfg);
             setSelectedIds(loadSelection(cfg));
@@ -293,6 +310,9 @@ export default function BadmintonSessionPage() {
         )
         : 0;
 
+    // Estimate session duration based on selected exercises
+    const estimatedSeconds = config ? estimateSessionDuration(config, selectedIds) : 0;
+
     return (
         <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-text-main-dark antialiased">
             <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden pb-32">
@@ -305,6 +325,7 @@ export default function BadmintonSessionPage() {
                         <SessionSummary
                             restTime={config?.globalRestTime ?? 30}
                             totalExercises={totalSelected}
+                            estimatedSeconds={estimatedSeconds}
                         />
                     </section>
 
