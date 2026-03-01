@@ -144,9 +144,7 @@ export function buildSessionSteps(config: WorkoutConfig): SessionStep[] {
     // Flatten all exercises from all non-empty groups
     const allExercises: Array<{ name: string; group: string; type: "time" | "reps"; value: number }> = [];
 
-    console.log("buildSessionSteps: processing groups in order", Object.keys(config.groups));
     for (const [groupName, exercises] of Object.entries(config.groups)) {
-        console.log(`Processing group: ${groupName} (${exercises.length} exercises)`);
         for (const ex of exercises) {
             allExercises.push({ name: ex.name, group: groupName, type: ex.type, value: ex.value });
         }
@@ -154,10 +152,6 @@ export function buildSessionSteps(config: WorkoutConfig): SessionStep[] {
 
     // Optimize the exercise sequence to maximize alternation between muscle groups
     const optimizedExercises = optimizeExerciseSequence(allExercises);
-
-    console.log("buildSessionSteps: allExercises", allExercises);
-    console.log("buildSessionSteps: optimizedExercises", optimizedExercises);
-    console.log("buildSessionSteps: first exercise", optimizedExercises[0]);
 
     // Build sequence: [work, rest, work, rest, ..., work] (no trailing rest)
     // La séance ne commence jamais par un repos - the session never starts with a rest
@@ -170,22 +164,15 @@ export function buildSessionSteps(config: WorkoutConfig): SessionStep[] {
             steps.push({ kind: "work", name: ex.name, group: ex.group, type: "reps", reps: ex.value });
         }
 
-        console.log(`Step ${steps.length - 1}: Added work step for ${ex.name} (${ex.type})`);
-
         // Add rest after every exercise except the last
         if (i < optimizedExercises.length - 1) {
             steps.push({ kind: "rest", duration: restDuration });
-            console.log(`Step ${steps.length - 1}: Added rest step (${restDuration}s)`);
         }
     }
 
-    console.log("buildSessionSteps: final steps", steps);
-    console.log("buildSessionSteps: first step", steps[0]);
-    console.log("buildSessionSteps: first step kind", steps[0]?.kind);
-
     // Vérification de sécurité : s'assurer que le premier step n'est pas un repos
     if (steps.length > 0 && steps[0].kind === "rest") {
-        console.error("BUG CRITIQUE: buildSessionSteps retourne un premier step de type 'rest'!", steps);
+        console.error("BUG CRITIQUE: buildSessionSteps retourne un premier step de type 'rest'!");
         // Correction d'urgence : supprimer le premier repos si présent
         if (steps[0].kind === "rest") {
             steps.shift();
@@ -199,10 +186,7 @@ export function buildSessionSteps(config: WorkoutConfig): SessionStep[] {
  * Encodes a SessionStep array to a base64 URL-safe string.
  */
 export function encodeSession(steps: SessionStep[]): string {
-    console.log("encodeSession: input steps", steps);
-    console.log("encodeSession: first step", steps[0]);
     const json = JSON.stringify(steps);
-    console.log("encodeSession: json length", json.length);
     // btoa is available in browser; use Buffer in Node
     if (typeof window !== "undefined") {
         // Properly encode UTF-8 characters for base64
@@ -290,8 +274,6 @@ export function decodeSession(encoded: string): SessionStep[] | null {
             json = Buffer.from(encoded, "base64").toString("utf-8");
         }
         const decoded = JSON.parse(json) as SessionStep[];
-        console.log("decodeSession: decoded steps", decoded);
-        console.log("decodeSession: first step", decoded[0]);
         return decoded;
     } catch (error) {
         console.error("decodeSession: failed to decode", encoded, error);

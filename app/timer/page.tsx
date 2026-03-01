@@ -245,21 +245,6 @@ function TimerInner() {
 
     const timerSuffix = isReps ? "reps" : "sec";
 
-    console.log("Timer display:", {
-        currentStepIndex,
-        currentStep: currentStep ? {
-            kind: currentStep.kind,
-            name: currentStep.name,
-            type: currentStep.type,
-            value: 'duration' in currentStep ? currentStep.duration : ('reps' in currentStep ? currentStep.reps : 'N/A')
-        } : null,
-        timeLeft,
-        timerDisplay,
-        timerSuffix,
-        isRest,
-        isWork,
-        isReps
-    });
 
     // ── Progress numbers ─────────────────────────────────────────────────
     const displayedWorkStep = completedWorkSteps + (isWork ? 1 : 0);
