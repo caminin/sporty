@@ -1,65 +1,347 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+import React, { useState, useEffect } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Clock, Dumbbell } from "lucide-react";
+import type { Exercise, WorkoutConfig } from "./workout-types";
+import { getWorkoutConfig } from "./exercises-actions";
+import { buildSessionSteps, encodeSession } from "./session-utils";
+
+const STORAGE_KEY = "sporty_session_selection";
+
+/** Visual config per group */
+const GROUP_STYLES: Record<string, { icon: string; colorClass: string; borderClass: string }> = {
+    "Cardio endurance": { icon: "favorite", colorClass: "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400", borderClass: "" },
+    "Explosivité jambes": { icon: "bolt", colorClass: "bg-primary/10 text-primary", borderClass: "border-l-4 border-primary" },
+    "Adbos": { icon: "fitness_center", colorClass: "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400", borderClass: "" },
+    "Épaules et frappe": { icon: "sports_tennis", colorClass: "bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400", borderClass: "" },
+    "Agilité et déplacements": { icon: "directions_run", colorClass: "bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400", borderClass: "" },
+};
+const DEFAULT_STYLE = { icon: "accessibility_new", colorClass: "bg-slate-100 text-slate-600", borderClass: "" };
+
+/* ─── localStorage helpers ───────────────────────────────────────────────── */
+
+function loadSelection(config: WorkoutConfig): Set<string> {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return getAllIds(config);
+        const parsed: unknown = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return getAllIds(config);
+        const allIds = getAllIds(config);
+        // Keep only IDs that still exist in the catalogue
+        const valid = (parsed as string[]).filter((id) => allIds.has(id));
+        return new Set(valid);
+    } catch {
+        return getAllIds(config);
+    }
+}
+
+function getAllIds(config: WorkoutConfig): Set<string> {
+    const ids = new Set<string>();
+    for (const exercises of Object.values(config.groups)) {
+        for (const ex of exercises) ids.add(ex.id);
+    }
+    return ids;
+}
+
+function saveSelection(selectedIds: Set<string>, config: WorkoutConfig) {
+    // Only persist IDs that exist in the current catalogue (clean up stale IDs)
+    const allIds = getAllIds(config);
+    const toSave = [...selectedIds].filter((id) => allIds.has(id));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+}
+
+/* ─── Sub-components ─────────────────────────────────────────────────────── */
+
+function Header() {
+    return (
+        <header className="sticky top-0 z-20 flex items-center justify-between bg-background-light/95 dark:bg-background-dark/95 px-5 py-4 backdrop-blur-md border-b border-gray-200 dark:border-white/5">
+            <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-background-dark shadow-sm shadow-primary/20">
+                    <span className="material-symbols-outlined">airport_shuttle</span>
+                </div>
+                <div>
+                    <h1 className="text-xl font-bold leading-tight tracking-tight">Ma Séance</h1>
+                    <p className="text-xs font-medium text-slate-500 dark:text-text-muted-dark">Entraînement à la maison</p>
+                </div>
+            </div>
+            <Link
+                href="/group-settings"
+                className="flex h-10 w-10 items-center justify-center rounded-full text-slate-900 dark:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+                <span className="material-symbols-outlined">settings</span>
+            </Link>
+        </header>
+    );
+}
+
+function IntensityControl() {
+    const [intensity, setIntensity] = useState(1.2);
+    return (
+        <>
+            <div className="mb-6 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-primary">speed</span>
+                    <h2 className="text-lg font-bold">Intensité Globale</h2>
+                </div>
+                <span className="rounded-lg bg-primary/10 px-3 py-1 text-sm font-bold text-primary">x{intensity}</span>
+            </div>
+            <div className="relative mb-8 pt-2">
+                <input
+                    className="w-full bg-transparent appearance-none cursor-pointer focus:outline-none"
+                    max="2" min="0.5" step="0.1" type="range"
+                    value={intensity}
+                    onChange={(e) => setIntensity(parseFloat(e.target.value))}
+                />
+                <div className="mt-3 flex justify-between text-xs font-medium text-slate-400 dark:text-text-muted-dark px-1">
+                    <span>0.5x</span><span>1x</span><span>1.5x</span><span>2x</span>
+                </div>
+            </div>
+        </>
+    );
+}
+
+function SessionSummary({ restTime, totalExercises }: { restTime: number; totalExercises: number }) {
+    return (
+        <div className="flex items-center justify-between rounded-xl bg-background-light dark:bg-background-dark p-4">
+            <div className="text-center">
+                <p className="text-xs text-slate-500 dark:text-text-muted-dark">Exercices</p>
+                <p className="text-xl font-bold text-slate-900 dark:text-white">
+                    {totalExercises} <span className="text-sm font-normal">sélectionnés</span>
+                </p>
+            </div>
+            <div className="h-8 w-px bg-slate-200 dark:bg-white/10" />
+            <div className="text-center">
+                <p className="text-xs text-slate-500 dark:text-text-muted-dark">Repos / Exo</p>
+                <p className="text-xl font-bold text-slate-900 dark:text-white">
+                    {restTime} <span className="text-sm font-normal">sec</span>
+                </p>
+            </div>
+            <div className="h-8 w-px bg-slate-200 dark:bg-white/10" />
+            <div className="text-center">
+                <p className="text-xs text-slate-500 dark:text-text-muted-dark">Difficulté</p>
+                <p className="text-xl font-bold text-primary">Haute</p>
+            </div>
+        </div>
+    );
+}
+
+/* ─── Group block ─────────────────────────────────────────────────────────── */
+
+function ExerciseGroupBlock({
+    groupName,
+    exercises,
+    selectedIds,
+    onToggle,
+}: {
+    groupName: string;
+    exercises: Exercise[];
+    selectedIds: Set<string>;
+    onToggle: (id: string) => void;
+}) {
+    const style = GROUP_STYLES[groupName] || DEFAULT_STYLE;
+    const selectedCount = exercises.filter((ex) => selectedIds.has(ex.id)).length;
+
+    return (
+        <div className={`overflow-hidden rounded-xl bg-white dark:bg-surface-dark shadow-sm ring-1 ring-black/5 dark:ring-white/5 ${style.borderClass}`}>
+            {/* Group header */}
+            <div className={`flex items-center gap-3 px-4 py-3 ${style.colorClass} bg-opacity-20`}>
+                <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg ${style.colorClass}`}>
+                    <span className="material-symbols-outlined text-base">{style.icon}</span>
+                </div>
+                <h3 className="font-bold text-slate-900 dark:text-white">{groupName}</h3>
+                <span className="ml-auto text-xs font-medium text-slate-400 dark:text-text-muted-dark">
+                    {selectedCount}/{exercises.length}
+                </span>
+            </div>
+
+            {/* Exercises */}
+            <div className="px-4 py-2">
+                {exercises.length === 0 && (
+                    <p className="py-3 text-sm italic text-slate-400 dark:text-text-muted-dark">Aucun exercice dans ce groupe.</p>
+                )}
+                {exercises.map((ex) => {
+                    const isSelected = selectedIds.has(ex.id);
+                    return (
+                        <button
+                            key={ex.id}
+                            id={`toggle-exercise-${ex.id}`}
+                            onClick={() => onToggle(ex.id)}
+                            aria-pressed={isSelected}
+                            aria-label={`${isSelected ? "Retirer" : "Ajouter"} ${ex.name}`}
+                            className={`group w-full flex items-center gap-3 py-2.5 border-b border-slate-100 dark:border-white/5 last:border-0 text-left transition-opacity ${isSelected ? "opacity-100" : "opacity-40"
+                                }`}
+                        >
+                            {/* Type icon */}
+                            {ex.type === "time" ? (
+                                <Clock className="w-4 h-4 flex-shrink-0 text-blue-400" aria-label="Exercice chronométré" />
+                            ) : (
+                                <Dumbbell className="w-4 h-4 flex-shrink-0 text-orange-400" aria-label="Exercice en répétitions" />
+                            )}
+                            <span className={`flex-1 text-sm font-medium transition-colors ${isSelected ? "text-slate-800 dark:text-white" : "text-slate-400 dark:text-slate-500 line-through"}`}>
+                                {ex.name}
+                            </span>
+                            <span className="rounded-full bg-slate-100 dark:bg-white/10 px-2 py-0.5 text-xs font-semibold text-slate-500 dark:text-text-muted-dark">
+                                {ex.type === "time" ? `${ex.value}s` : `${ex.value} reps`}
+                            </span>
+                            {/* Toggle indicator */}
+                            <div
+                                className={`flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${isSelected
+                                        ? "border-primary bg-primary"
+                                        : "border-slate-300 dark:border-white/20 bg-transparent"
+                                    }`}
+                            >
+                                {isSelected && (
+                                    <svg className="w-3 h-3 text-background-dark" fill="none" viewBox="0 0 12 12">
+                                        <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                    </svg>
+                                )}
+                            </div>
+                        </button>
+                    );
+                })}
+                <div className="pb-2" />
+            </div>
+        </div>
+    );
+}
+
+function FloatingActionButton({
+    config,
+    selectedIds,
+}: {
+    config: WorkoutConfig | null;
+    selectedIds: Set<string>;
+}) {
+    const router = useRouter();
+    const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+    const handleLaunch = () => {
+        if (!config) return;
+
+        // Build a filtered config with only selected exercises
+        const filteredGroups: WorkoutConfig["groups"] = {};
+        for (const [groupName, exercises] of Object.entries(config.groups)) {
+            const selected = exercises.filter((ex) => selectedIds.has(ex.id));
+            if (selected.length > 0) filteredGroups[groupName] = selected;
+        }
+        const filteredConfig: WorkoutConfig = { ...config, groups: filteredGroups };
+
+        const steps = buildSessionSteps(filteredConfig);
+        if (steps.length === 0) {
+            setErrorMsg("Aucun exercice sélectionné ! Cochez des exercices avant de lancer la séance.");
+            setTimeout(() => setErrorMsg(null), 4000);
+            return;
+        }
+        const encoded = encodeSession(steps);
+        router.push(`/timer?session=${encoded}`);
+    };
+
+    return (
+        <div className="fixed bottom-0 left-0 right-0 z-50 bg-background-light dark:bg-background-dark/80 backdrop-blur-lg border-t border-gray-200 dark:border-white/5 p-4 pb-8">
+            {errorMsg && (
+                <div className="mb-3 rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm font-medium text-red-600 dark:text-red-400 text-center">
+                    {errorMsg}
+                </div>
+            )}
+            <button
+                onClick={handleLaunch}
+                disabled={!config}
+                id="launch-session-btn"
+                className="w-full flex items-center justify-center gap-3 rounded-2xl bg-primary px-6 py-4 text-lg font-bold text-background-dark shadow-lg shadow-primary/25 transition-transform active:scale-95 hover:brightness-110 disabled:opacity-50"
             >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+                <span className="material-symbols-outlined text-2xl">play_arrow</span>
+                Lancer la séance
+            </button>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+    );
+}
+
+/* ─── Main page ──────────────────────────────────────────────────────────── */
+
+export default function BadmintonSessionPage() {
+    const [config, setConfig] = useState<WorkoutConfig | null>(null);
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+    useEffect(() => {
+        getWorkoutConfig().then((cfg) => {
+            setConfig(cfg);
+            setSelectedIds(loadSelection(cfg));
+        });
+    }, []);
+
+    const handleToggle = (exerciseId: string) => {
+        if (!config) return;
+        setSelectedIds((prev) => {
+            const next = new Set(prev);
+            if (next.has(exerciseId)) {
+                next.delete(exerciseId);
+            } else {
+                next.add(exerciseId);
+            }
+            saveSelection(next, config);
+            return next;
+        });
+    };
+
+    // Count only selected exercises for the summary
+    const totalSelected = config
+        ? Object.values(config.groups).reduce(
+            (sum, exs) => sum + exs.filter((ex) => selectedIds.has(ex.id)).length,
+            0
+        )
+        : 0;
+
+    return (
+        <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-text-main-dark antialiased">
+            <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden pb-32">
+                <Header />
+
+                <main className="flex flex-col gap-6 p-5">
+                    {/* Intensity + Summary card */}
+                    <section className="rounded-2xl bg-white dark:bg-surface-dark p-6 shadow-md ring-1 ring-black/5 dark:ring-white/5">
+                        <IntensityControl />
+                        <SessionSummary
+                            restTime={config?.globalRestTime ?? 30}
+                            totalExercises={totalSelected}
+                        />
+                    </section>
+
+                    {/* Exercise groups */}
+                    <section>
+                        <div className="mb-4 flex items-center justify-between">
+                            <h2 className="text-lg font-bold">Séquence du jour</h2>
+                            <span className="text-sm font-medium text-slate-500 dark:text-text-muted-dark">
+                                {config ? Object.keys(config.groups).length : 0} groupes
+                            </span>
+                        </div>
+
+                        {!config ? (
+                            <div className="flex items-center justify-center py-16 text-slate-400">
+                                <div className="flex flex-col items-center gap-3">
+                                    <div className="w-8 h-8 border-2 border-slate-300 dark:border-white/20 border-t-primary rounded-full animate-spin" />
+                                    <span className="text-sm">Chargement…</span>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col gap-4">
+                                {Object.entries(config.groups).map(([groupName, exercises]) => (
+                                    <ExerciseGroupBlock
+                                        key={groupName}
+                                        groupName={groupName}
+                                        exercises={exercises}
+                                        selectedIds={selectedIds}
+                                        onToggle={handleToggle}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </section>
+                </main>
+
+                <FloatingActionButton config={config} selectedIds={selectedIds} />
+            </div>
         </div>
-      </main>
-    </div>
-  );
+    );
 }

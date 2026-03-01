@@ -1,0 +1,141 @@
+{
+    "globalRestTime": 30,
+    "groups": {
+        "Cardio endurance": [
+            {
+                "id": "ce-1",
+                "name": "Burpees",
+                "type": "time",
+                "value": 45,
+                "description": "Saut accroupi, pompe, saut vertical explosif ; cardio total du corps."
+            },
+            {
+                "id": "ce-2",
+                "name": "Montées de genoux",
+                "type": "reps",
+                "value": 20,
+                "description": "Course sur place en levant haut les genoux ; améliore cardio et coordination."
+            },
+            {
+                "id": "ce-3",
+                "name": "Shadow badminton",
+                "type": "time",
+                "value": 60,
+                "description": "Gestes de badminton sans volant ; travail cardio, technique et footwork."
+            },
+            {
+                "id": "ce-4",
+                "name": "Corde à sauter",
+                "type": "time",
+                "value": 60,
+                "description": "Sauts rythmés avec ta corde ; endurance et rythme."
+            },
+            {
+                "id": "ce-5",
+                "name": "Mountain climbers",
+                "type": "time",
+                "value": 45,
+                "description": "En planche, ramène genoux au poitrine alternativement ; cardio core."
+            }
+        ],
+        "Épaules et frappe": [
+            {
+                "id": "ef-1",
+                "name": "Pompes",
+                "type": "reps",
+                "value": 15,
+                "description": "Pompes classiques au sol ; renforce épaules, pecs et triceps."
+            },
+            {
+                "id": "ef-2",
+                "name": "Pompes explosifs",
+                "type": "reps",
+                "value": 10,
+                "description": "Pompes avec mains qui décollent ; puissance frappe."
+            },
+            {
+                "id": "ef-3",
+                "name": "Rotations épaules (bras tendus)",
+                "type": "reps",
+                "value": 20,
+                "description": "Bras tendus, cercles larges avant/arrière ; mobilité et endurance épaules."
+            }
+        ],
+        "Adbos": [
+            {
+                "id": "ab-1",
+                "name": "Gainage face",
+                "type": "time",
+                "value": 60,
+                "description": "Planche sur avant-bras ; statique ventre gainé."
+            },
+            {
+                "id": "ab-2",
+                "name": "Gainage côtés",
+                "type": "time",
+                "value": 30,
+                "description": "Planche latérale sur un coude ; obliques par côté."
+            },
+            {
+                "id": "ab-3",
+                "name": "Crunchs",
+                "type": "reps",
+                "value": 20,
+                "description": "Allongé dos au sol, relevez buste ; abdos rectus."
+            },
+            {
+                "id": "ab-4",
+                "name": "Russian twists",
+                "type": "reps",
+                "value": 20,
+                "description": "Assis genoux pliés, torsions buste main à main ; obliques rotation."
+            },
+            {
+                "id": "ab-5",
+                "name": "Relevés de jambes",
+                "type": "reps",
+                "value": 15,
+                "description": "Allongé, monte jambes tendues à 90° ; bas abdos."
+            }
+        ],
+        "Explosivité jambes": [
+            {
+                "id": "ej-1",
+                "name": "Squat jumps",
+                "type": "reps",
+                "value": 15,
+                "description": "Squat puis saut max ; puissance cuisses."
+            },
+            {
+                "id": "ej-2",
+                "name": "Fentes sautées",
+                "type": "reps",
+                "value": 12,
+                "description": "Fente avant, saute en alternant jambes ; explosivité unilatérale."
+            }
+        ],
+        "Agilité et déplacements": [
+            {
+                "id": "ad-1",
+                "name": "Pas chassés latéraux",
+                "type": "time",
+                "value": 45,
+                "description": "Petits pas latéraux rapides pied derrière pied ; footwork bad."
+            },
+            {
+                "id": "ad-2",
+                "name": "Sauts latéraux",
+                "type": "reps",
+                "value": 20,
+                "description": "Sauts d'un côté à l'autre sur ligne imaginaire ; agilité hanches."
+            },
+            {
+                "id": "ad-4",
+                "name": "Shuttle runs courts",
+                "type": "time",
+                "value": 30,
+                "description": "Courses aller-retour 3-5m avec changements direction brusques."
+            }
+        ]
+    }
+}

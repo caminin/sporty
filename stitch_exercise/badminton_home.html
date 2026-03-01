@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html class="dark" lang="fr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Ma Séance Badminton</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#13ec5b",
+              "background-light": "#f6f8f6",
+              "background-dark": "#0a0f0d",
+              "surface-dark": "#161b18", 
+              "surface-light": "#ffffff",
+              "text-main-dark": "#f0fdf4",
+              "text-muted-dark": "#9db9a6",
+            },
+            fontFamily: {
+              "display": ["Lexend", "sans-serif"]
+            },
+            borderRadius: {
+                "DEFAULT": "0.25rem", 
+                "lg": "0.5rem", 
+                "xl": "0.75rem", 
+                "2xl": "1rem",
+                "full": "9999px"
+            },
+          },
+        },
+      }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+    input[type=range]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        height: 24px;
+        width: 24px;
+        border-radius: 50%;
+        background: #13ec5b;
+        cursor: pointer;
+        margin-top: -10px;
+        box-shadow: 0 0 0 4px rgba(19, 236, 91, 0.2);
+    }
+    input[type=range]::-moz-range-thumb {
+        height: 24px;
+        width: 24px;
+        border: none;
+        border-radius: 50%;
+        background: #13ec5b;
+        cursor: pointer;
+        box-shadow: 0 0 0 4px rgba(19, 236, 91, 0.2);
+    }
+    input[type=range]::-webkit-slider-runnable-track {
+        width: 100%;
+        height: 4px;
+        cursor: pointer;
+        background: #334155;
+        border-radius: 2px;
+    }
+    .scrollbar-hide::-webkit-scrollbar {
+        display: none;
+    }
+    .scrollbar-hide {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+</style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-text-main-dark antialiased">
+<div class="relative flex min-h-screen w-full flex-col overflow-x-hidden pb-32">
+<header class="sticky top-0 z-20 flex items-center justify-between bg-background-light/95 dark:bg-background-dark/95 px-5 py-4 backdrop-blur-md border-b border-gray-200 dark:border-white/5">
+<div class="flex items-center gap-3">
+<div class="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-background-dark shadow-sm shadow-primary/20">
+<span class="material-symbols-outlined">airport_shuttle</span>
+</div>
+<div>
+<h1 class="text-xl font-bold leading-tight tracking-tight">Ma Séance</h1>
+<p class="text-xs font-medium text-slate-500 dark:text-text-muted-dark">Entraînement à la maison</p>
+</div>
+</div>
+<button class="flex h-10 w-10 items-center justify-center rounded-full text-slate-900 dark:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
+<span class="material-symbols-outlined">settings</span>
+</button>
+</header>
+<main class="flex flex-col gap-6 p-5">
+<section class="rounded-2xl bg-white dark:bg-surface-dark p-6 shadow-md ring-1 ring-black/5 dark:ring-white/5">
+<div class="mb-6 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">speed</span>
+<h2 class="text-lg font-bold">Intensité Globale</h2>
+</div>
+<span class="rounded-lg bg-primary/10 px-3 py-1 text-sm font-bold text-primary">x1.2</span>
+</div>
+<div class="relative mb-8 pt-2">
+<input class="w-full bg-transparent appearance-none cursor-pointer focus:outline-none" max="2" min="0.5" step="0.1" type="range" value="1.2"/>
+<div class="mt-3 flex justify-between text-xs font-medium text-slate-400 dark:text-text-muted-dark px-1">
+<span>0.5x</span>
+<span>1x</span>
+<span>1.5x</span>
+<span>2x</span>
+</div>
+</div>
+<div class="flex items-center justify-between rounded-xl bg-background-light dark:bg-background-dark p-4">
+<div class="text-center">
+<p class="text-xs text-slate-500 dark:text-text-muted-dark">Durée Totale</p>
+<p class="text-xl font-bold text-slate-900 dark:text-white">42 <span class="text-sm font-normal">min</span></p>
+</div>
+<div class="h-8 w-px bg-slate-200 dark:bg-white/10"></div>
+<div class="text-center">
+<p class="text-xs text-slate-500 dark:text-text-muted-dark">Repos / Exo</p>
+<p class="text-xl font-bold text-slate-900 dark:text-white">30 <span class="text-sm font-normal">sec</span></p>
+</div>
+<div class="h-8 w-px bg-slate-200 dark:bg-white/10"></div>
+<div class="text-center">
+<p class="text-xs text-slate-500 dark:text-text-muted-dark">Difficulté</p>
+<p class="text-xl font-bold text-primary">Haute</p>
+</div>
+</div>
+</section>
+<section>
+<div class="mb-4 flex items-center justify-between">
+<h3 class="text-lg font-bold">Séquence du jour</h3>
+<span class="text-sm font-medium text-slate-500 dark:text-text-muted-dark">5 blocs</span>
+</div>
+<div class="flex flex-col gap-3">
+<div class="group relative flex items-center gap-4 overflow-hidden rounded-xl bg-white dark:bg-surface-dark p-4 shadow-sm ring-1 ring-black/5 dark:ring-white/5 transition-all hover:ring-primary/50">
+<div class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400">
+<span class="material-symbols-outlined">accessibility_new</span>
+</div>
+<div class="flex-1">
+<h4 class="font-bold text-slate-900 dark:text-white">Échauffement Articulaire</h4>
+<p class="text-sm text-slate-500 dark:text-text-muted-dark">Poignets, épaules, chevilles</p>
+</div>
+<div class="text-right">
+<p class="font-bold text-slate-900 dark:text-white">5:00</p>
+<p class="text-xs text-slate-400">min</p>
+</div>
+</div>
+<div class="group relative flex items-center gap-4 overflow-hidden rounded-xl bg-white dark:bg-surface-dark p-4 shadow-sm ring-1 ring-black/5 dark:ring-white/5 transition-all hover:ring-primary/50 border-l-4 border-primary">
+<div class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+<span class="material-symbols-outlined">bolt</span>
+</div>
+<div class="flex-1">
+<h4 class="font-bold text-slate-900 dark:text-white">Explosivité Jambes</h4>
+<p class="text-sm text-slate-500 dark:text-text-muted-dark">Squat jumps, fentes sautées</p>
+</div>
+<div class="text-right">
+<p class="font-bold text-slate-900 dark:text-white">8:00</p>
+<p class="text-xs text-slate-400">min</p>
+</div>
+</div>
+<div class="group relative flex items-center gap-4 overflow-hidden rounded-xl bg-white dark:bg-surface-dark p-4 shadow-sm ring-1 ring-black/5 dark:ring-white/5 transition-all hover:ring-primary/50">
+<div class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">
+<span class="material-symbols-outlined">favorite</span>
+</div>
+<div class="flex-1">
+<h4 class="font-bold text-slate-900 dark:text-white">Cardio Intense</h4>
+<p class="text-sm text-slate-500 dark:text-text-muted-dark">Burpees, Montées de genoux</p>
+</div>
+<div class="text-right">
+<p class="font-bold text-slate-900 dark:text-white">10:00</p>
+<p class="text-xs text-slate-400">min</p>
+</div>
+</div>
+<div class="group relative flex items-center gap-4 overflow-hidden rounded-xl bg-white dark:bg-surface-dark p-4 shadow-sm ring-1 ring-black/5 dark:ring-white/5 transition-all hover:ring-primary/50">
+<div class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+<span class="material-symbols-outlined">fitness_center</span>
+</div>
+<div class="flex-1">
+<h4 class="font-bold text-slate-900 dark:text-white">Renforcement Tronc</h4>
+<p class="text-sm text-slate-500 dark:text-text-muted-dark">Gainage face, côtés, crunchs</p>
+</div>
+<div class="text-right">
+<p class="font-bold text-slate-900 dark:text-white">12:00</p>
+<p class="text-xs text-slate-400">min</p>
+</div>
+</div>
+<div class="group relative flex items-center gap-4 overflow-hidden rounded-xl bg-white dark:bg-surface-dark p-4 shadow-sm ring-1 ring-black/5 dark:ring-white/5 transition-all hover:ring-primary/50">
+<div class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400">
+<span class="material-symbols-outlined">self_improvement</span>
+</div>
+<div class="flex-1">
+<h4 class="font-bold text-slate-900 dark:text-white">Retour au calme</h4>
+<p class="text-sm text-slate-500 dark:text-text-muted-dark">Étirements lents</p>
+</div>
+<div class="text-right">
+<p class="font-bold text-slate-900 dark:text-white">5:00</p>
+<p class="text-xs text-slate-400">min</p>
+</div>
+</div>
+</div>
+</section>
+</main>
+<div class="fixed bottom-0 left-0 right-0 z-50 bg-background-light dark:bg-background-dark/80 backdrop-blur-lg border-t border-gray-200 dark:border-white/5 p-4 pb-8">
+<button class="w-full flex items-center justify-center gap-3 rounded-2xl bg-primary px-6 py-4 text-lg font-bold text-background-dark shadow-lg shadow-primary/25 transition-transform active:scale-95 hover:brightness-110">
+<span class="material-symbols-outlined text-2xl">play_arrow</span>
+    Lancer la séance
+</button>
+</div>
+</div>
+
+</body></html>
