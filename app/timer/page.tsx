@@ -84,10 +84,8 @@ function TimerInner() {
 
         // Set timeLeft for time-based steps
         if (currentStep.kind === "work" && currentStep.type === "time") {
-            console.log(`⏱️ Setting timeLeft to ${currentStep.duration}s for ${currentStep.name}`);
             setTimeLeft(currentStep.duration);
         } else if (currentStep.kind === "rest") {
-            console.log(`⏱️ Setting timeLeft to ${currentStep.duration}s for rest`);
             setTimeLeft(currentStep.duration);
         }
         // For reps steps, timeLeft is unused
@@ -122,8 +120,6 @@ function TimerInner() {
     const advanceStep = useCallback(() => {
         if (!steps) return;
 
-        console.log(`🔄 advanceStep called: currentStepIndex=${currentStepIndex}, currentStep=${currentStep?.name || 'rest'}`);
-
         // Play beep sound when advancing to next step
         playBeep();
 
@@ -141,11 +137,10 @@ function TimerInner() {
             } else {
                 console.log(`⏰ Début du repos: ${nextStep.duration}s`);
             }
-            console.log(`🔄 Setting currentStepIndex to ${nextIndex}`);
             setCurrentStepIndex(nextIndex);
             setSessionState("running");
         }
-    }, [currentStepIndex, steps, playBeep, currentStep]);
+    }, [currentStepIndex, steps, playBeep]);
 
     // ── Countdown timer (only for time-based steps) ──────────────────────
     useEffect(() => {
@@ -157,10 +152,7 @@ function TimerInner() {
         if (!isTimeBased) return;
         if (sessionState !== "running") return;
 
-        console.log(`⏳ Timer check: ${currentStep.name || 'rest'} - timeLeft=${timeLeft}, isTimeBased=${isTimeBased}, sessionState=${sessionState}`);
-
         if (timeLeft <= 0) {
-            console.log(`⏳ Time is up for ${currentStep.name || 'rest'}, advancing...`);
             // Use setTimeout to avoid immediate recursion
             const timeoutId = setTimeout(() => {
                 advanceStep();
@@ -168,13 +160,10 @@ function TimerInner() {
             return () => clearTimeout(timeoutId);
         }
 
-        console.log(`⏳ Starting countdown for ${currentStep.name || 'rest'}: ${timeLeft}s`);
         const interval = setInterval(() => {
             setTimeLeft(prev => {
                 const newTime = prev - 1;
-                console.log(`⏳ Tick: ${newTime}s remaining`);
                 if (newTime <= 0) {
-                    console.log(`⏳ Countdown reached 0, scheduling advance...`);
                     // Schedule advanceStep for next tick to avoid state update conflicts
                     setTimeout(() => {
                         advanceStep();
@@ -185,10 +174,7 @@ function TimerInner() {
             });
         }, 1000);
 
-        return () => {
-            console.log(`⏳ Clearing countdown interval`);
-            clearInterval(interval);
-        };
+        return () => clearInterval(interval);
     }, [timeLeft, sessionState, currentStep]);
 
     // ── Controls ─────────────────────────────────────────────────────────
