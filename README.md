@@ -1,36 +1,142 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🏃‍♂️ Sporty - Application d'Entraînement Personnalisé
 
-## Getting Started
+<div align="center">
 
-First, run the development server:
+![Sporty Logo](https://img.shields.io/badge/Sporty-Fitness_App-blue?style=for-the-badge&logo=react&logoColor=white)
+![Next.js](https://img.shields.io/badge/Next.js-16.1.6-black?style=flat-square&logo=next.js&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=flat-square&logo=typescript&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.0-38B2AC?style=flat-square&logo=tailwind-css&logoColor=white)
+
+*Créez vos séances d'entraînement personnalisées et boostez votre performance sportive !*
+
+[🚀 Démarrer](#installation) • [📖 Documentation](#utilisation) • [🤝 Contribuer](#contribution)
+
+</div>
+
+---
+
+## ✨ À propos
+
+**Sporty** est une application web moderne conçue pour les passionnés de fitness qui veulent créer des séances d'entraînement personnalisées et efficaces. Que vous soyez débutant ou athlète confirmé, Sporty vous aide à organiser vos workouts selon vos objectifs.
+
+### 🎯 Fonctionnalités principales
+
+- **📋 Sélection d'exercices personnalisée** : Choisissez parmi une variété d'exercices organisés par catégories
+- **⏱️ Timer intégré** : Suivez vos performances en temps réel pendant vos séances
+- **📊 Sessions personnalisables** : Créez des programmes adaptés à vos besoins
+- **💾 Sauvegarde automatique** : Vos préférences sont mémorisées localement
+- **🌙 Mode sombre** : Interface adaptative pour un confort optimal
+
+### 🏷️ Catégories d'exercices
+
+| Catégorie | Description | Exemples |
+|-----------|-------------|----------|
+| **Cardio endurance** 🏃‍♂️ | Exercices cardiovasculaires intenses | Burpees, Montées de genoux, Corde à sauter |
+| **Explosivité jambes** ⚡ | Développements de puissance | Squats sautés, Box jumps, Fentes explosives |
+| **Adbos** 💪 | Renforcement abdominal | Planks, Russian twists, Mountain climbers |
+| **Épaules et frappe** 🥊 | Travail des épaules et frappe | Shadow boxing, Pompes épaules, Rotations |
+| **Agilité et déplacements** 🏃‍♀️ | Coordination et mobilité | Pas chassés, Shadow badminton, Exercices de coordination |
+
+## 🚀 Installation
+
+### Prérequis
+
+- Node.js 18+
+- npm, yarn, pnpm ou bun
+
+### Installation rapide
 
 ```bash
+# Clonez le repository
+git clone <repository-url>
+cd sporty
+
+# Installez les dépendances
+npm install
+
+# Lancez le serveur de développement
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Ouvrez [http://localhost:3000](http://localhost:3000) dans votre navigateur pour accéder à l'application.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 📖 Utilisation
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. **Sélectionnez vos exercices** : Parcourez les différentes catégories et cochez les exercices qui vous intéressent
+2. **Configurez votre session** : Sporty organise automatiquement vos exercices en une séance cohérente
+3. **Lancez le timer** : Suivez le chronomètre intégré pour chaque exercice
+4. **Entraînez-vous** : Concentrez-vous sur votre performance, Sporty gère le timing
+5. **Sauvegardez vos préférences** : Vos sélections sont automatiquement mémorisées
 
-## Learn More
+### Exemple de session
 
-To learn more about Next.js, take a look at the following resources:
+```
+Séance personnalisée - Durée estimée: 25 minutes
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Burpees - 45 secondes
+   ⏱️ Cardio total du corps
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+2. Squats sautés - 15 répétitions
+   💥 Développe puissance jambes
 
-## Deploy on Vercel
+3. Plank - 60 secondes
+   💪 Renforcement abdominal
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 🛠️ Technologies utilisées
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Framework** : [Next.js 16](https://nextjs.org/) - React framework moderne
+- **Langage** : [TypeScript 5](https://www.typescriptlang.org/) - JavaScript typé
+- **Styling** : [Tailwind CSS 4](https://tailwindcss.com/) - Framework CSS utilitaire
+- **Icônes** : [Lucide React](https://lucide.dev/) - Bibliothèque d'icônes moderne
+- **Déploiement** : [Vercel](https://vercel.com/) - Plateforme de déploiement
+
+## 🤝 Contribution
+
+Les contributions sont les bienvenues ! Voici comment participer :
+
+### Pour les développeurs
+
+```bash
+# Forkez le projet
+# Créez votre branche de fonctionnalité
+git checkout -b feature/amazing-feature
+
+# Commitez vos changements
+git commit -m 'Add amazing feature'
+
+# Pushez vers la branche
+git push origin feature/amazing-feature
+
+# Ouvrez une Pull Request
+```
+
+### Pour les idées d'exercices
+
+Si vous avez des suggestions d'exercices à ajouter, ouvrez une [issue](https://github.com/username/sporty/issues) avec :
+- Nom de l'exercice
+- Description détaillée
+- Catégorie appropriée
+- Type (temps ou répétitions)
+- Valeur par défaut
+
+## 📄 Licence
+
+Ce projet est sous licence MIT - voir le fichier [LICENSE](LICENSE) pour plus de détails.
+
+## 🙏 Remerciements
+
+- [Next.js](https://nextjs.org/) pour le framework incroyable
+- [Tailwind CSS](https://tailwindcss.com/) pour le système de design
+- [Lucide](https://lucide.dev/) pour les icônes élégantes
+- La communauté open source pour l'inspiration continue
+
+---
+
+<div align="center">
+
+**Fait avec ❤️ pour la communauté fitness**
+
+⭐ Si ce projet vous plaît, n'hésitez pas à lui mettre une étoile !
+
+</div>
