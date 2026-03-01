@@ -157,7 +157,12 @@ function TimerInner() {
         if (!isTimeBased) return;
         if (sessionState !== "running") return;
 
-        console.log(`⏳ Timer check: ${currentStep.name || 'rest'} - timeLeft=${timeLeft}, isTimeBased=${isTimeBased}, sessionState=${sessionState}`);
+        // Skip timer logic if we're in a transition (timeLeft was just set for this step)
+        // Check if timeLeft matches the expected duration for this step
+        const expectedTime = currentStep.kind === "rest" ? currentStep.duration :
+                           (currentStep.type === "time" ? currentStep.duration : 0);
+
+        console.log(`⏳ Timer check: ${currentStep.name || 'rest'} - timeLeft=${timeLeft}, expected=${expectedTime}, isTimeBased=${isTimeBased}, sessionState=${sessionState}`);
 
         if (timeLeft <= 0) {
             console.log(`⏳ Time is up for ${currentStep.name || 'rest'}, advancing...`);
@@ -166,6 +171,12 @@ function TimerInner() {
                 advanceStep();
             }, 0);
             return () => clearTimeout(timeoutId);
+        }
+
+        // Only start countdown if timeLeft matches expected duration (not a stale value)
+        if (timeLeft !== expectedTime) {
+            console.log(`⏳ Skipping countdown - timeLeft (${timeLeft}) doesn't match expected (${expectedTime})`);
+            return;
         }
 
         console.log(`⏳ Starting countdown for ${currentStep.name || 'rest'}: ${timeLeft}s`);
