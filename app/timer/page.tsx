@@ -78,11 +78,11 @@ function TimerInner() {
     // Find next work step for preview
     const nextWorkStep = steps ? steps.slice(currentStepIndex + 1).find(s => s.kind === "work") : null;
 
-    // Initialise timeLeft whenever the step changes (but skip first step since it's handled by initial state)
+    // Initialise timeLeft whenever the step changes
     useEffect(() => {
-        if (!currentStep || currentStepIndex === 0) return;
+        if (!currentStep) return;
 
-        // Normal step transitions (not the first step)
+        // Set timeLeft for time-based steps
         if (currentStep.kind === "work" && currentStep.type === "time") {
             console.log(`⏱️ Setting timeLeft to ${currentStep.duration}s for ${currentStep.name}`);
             setTimeLeft(currentStep.duration);
@@ -91,7 +91,7 @@ function TimerInner() {
             setTimeLeft(currentStep.duration);
         }
         // For reps steps, timeLeft is unused
-    }, [currentStep, currentStepIndex]);
+    }, [currentStep]);
 
     // ── Audio functions ──────────────────────────────────────────────────
     const playBeep = useCallback(() => {
@@ -157,12 +157,7 @@ function TimerInner() {
         if (!isTimeBased) return;
         if (sessionState !== "running") return;
 
-        // Skip timer logic if we're in a transition (timeLeft was just set for this step)
-        // Check if timeLeft matches the expected duration for this step
-        const expectedTime = currentStep.kind === "rest" ? currentStep.duration :
-                           (currentStep.type === "time" ? currentStep.duration : 0);
-
-        console.log(`⏳ Timer check: ${currentStep.name || 'rest'} - timeLeft=${timeLeft}, expected=${expectedTime}, isTimeBased=${isTimeBased}, sessionState=${sessionState}`);
+        console.log(`⏳ Timer check: ${currentStep.name || 'rest'} - timeLeft=${timeLeft}, isTimeBased=${isTimeBased}, sessionState=${sessionState}`);
 
         if (timeLeft <= 0) {
             console.log(`⏳ Time is up for ${currentStep.name || 'rest'}, advancing...`);
@@ -171,12 +166,6 @@ function TimerInner() {
                 advanceStep();
             }, 0);
             return () => clearTimeout(timeoutId);
-        }
-
-        // Only start countdown if timeLeft matches expected duration (not a stale value)
-        if (timeLeft !== expectedTime) {
-            console.log(`⏳ Skipping countdown - timeLeft (${timeLeft}) doesn't match expected (${expectedTime})`);
-            return;
         }
 
         console.log(`⏳ Starting countdown for ${currentStep.name || 'rest'}: ${timeLeft}s`);
