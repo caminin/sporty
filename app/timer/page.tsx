@@ -54,6 +54,18 @@ function TimerInner() {
 
     const currentStep = steps ? steps[currentStepIndex] : null;
 
+    // Log first exercise when session starts
+    useEffect(() => {
+        if (steps && steps.length > 0 && currentStepIndex === 0) {
+            const firstStep = steps[0];
+            if (firstStep.kind === "work") {
+                console.log(`🚀 Début de la session - Premier exercice: ${firstStep.name} (${firstStep.group})`);
+            } else {
+                console.log(`🚀 Début de la session - Premier repos: ${firstStep.duration}s`);
+            }
+        }
+    }, [steps, currentStepIndex]);
+
     // Count of "work" steps only (for progress display)
     const totalWorkSteps = steps ? steps.filter(s => s.kind === "work").length : 0;
     const completedWorkSteps = steps
@@ -110,8 +122,15 @@ function TimerInner() {
 
         const nextIndex = currentStepIndex + 1;
         if (nextIndex >= steps.length) {
+            console.log("🏁 Session terminée");
             setSessionState("finished");
         } else {
+            const nextStep = steps[nextIndex];
+            if (nextStep.kind === "work") {
+                console.log(`💪 Début de l'exercice: ${nextStep.name} (${nextStep.group})`);
+            } else {
+                console.log(`⏰ Début du repos: ${nextStep.duration}s`);
+            }
             setCurrentStepIndex(nextIndex);
             setSessionState("running");
         }
