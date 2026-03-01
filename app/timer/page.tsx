@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo, Suspense } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import type { SessionStep, SessionState } from "../workout-types";
 import { decodeSession } from "../session-utils";
@@ -143,6 +143,9 @@ function TimerInner() {
     }, [currentStepIndex, steps, playBeep]);
 
     // ── Countdown timer (only for time-based steps) ──────────────────────
+    const advanceStepRef = useRef(advanceStep);
+    advanceStepRef.current = advanceStep;
+
     useEffect(() => {
         if (!currentStep) return;
         const isTimeBased =
@@ -152,22 +155,15 @@ function TimerInner() {
         if (!isTimeBased) return;
         if (sessionState !== "running") return;
 
-        if (timeLeft <= 0) {
-            // Use setTimeout to avoid immediate recursion
-            const timeoutId = setTimeout(() => {
-                advanceStep();
-            }, 0);
-            return () => clearTimeout(timeoutId);
-        }
+        // Don't advance when timeLeft <= 0 at effect run - that's a stale value from
+        // a step transition. We only advance when we decrement to 0 inside the interval.
+        if (timeLeft <= 0) return;
 
         const interval = setInterval(() => {
             setTimeLeft(prev => {
                 const newTime = prev - 1;
                 if (newTime <= 0) {
-                    // Schedule advanceStep for next tick to avoid state update conflicts
-                    setTimeout(() => {
-                        advanceStep();
-                    }, 0);
+                    setTimeout(() => advanceStepRef.current(), 0);
                     return 0;
                 }
                 return newTime;

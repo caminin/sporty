@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  sporty:
+    image: rcharlot49/sporty:2026-03-01
+    container_name: sporty
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
