@@ -4,6 +4,8 @@ import React, { useState, useEffect, useCallback, useMemo, Suspense } from "reac
 import { useSearchParams, useRouter } from "next/navigation";
 import type { SessionStep, SessionState } from "../workout-types";
 import { decodeSession } from "../session-utils";
+import { ExerciseGroupBadge } from "../components/ExerciseGroupBadge";
+import { NextExercisePreview } from "../components/NextExercisePreview";
 
 /* ─── Inner component (needs Suspense for useSearchParams) ────────────────── */
 
@@ -58,6 +60,9 @@ function TimerInner() {
         ? steps.slice(0, currentStepIndex).filter(s => s.kind === "work").length
         : 0;
 
+    // Find next work step for preview
+    const nextWorkStep = steps ? steps.slice(currentStepIndex + 1).find(s => s.kind === "work") : null;
+
     // Initialise timeLeft whenever the step changes (but skip first step since it's handled by initial state)
     useEffect(() => {
         if (!currentStep || currentStepIndex === 0) return;
@@ -71,9 +76,38 @@ function TimerInner() {
         // For reps steps, timeLeft is unused
     }, [currentStep, currentStepIndex]);
 
+    // ── Audio functions ──────────────────────────────────────────────────
+    const playBeep = useCallback(() => {
+        if (!isAudioEnabled) return;
+
+        try {
+            const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.frequency.setValueAtTime(800, audioContext.currentTime); // Frequency in Hz
+            oscillator.type = 'sine';
+
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.3);
+        } catch (error) {
+            console.warn("Audio playback failed:", error);
+        }
+    }, [isAudioEnabled]);
+
     // ── Advance to next step ─────────────────────────────────────────────
     const advanceStep = useCallback(() => {
         if (!steps) return;
+
+        // Play beep sound when advancing to next step
+        playBeep();
+
         const nextIndex = currentStepIndex + 1;
         if (nextIndex >= steps.length) {
             setSessionState("finished");
@@ -81,7 +115,7 @@ function TimerInner() {
             setCurrentStepIndex(nextIndex);
             setSessionState("running");
         }
-    }, [currentStepIndex, steps]);
+    }, [currentStepIndex, steps, playBeep]);
 
     // ── Countdown timer (only for time-based steps) ──────────────────────
     useEffect(() => {
@@ -115,6 +149,7 @@ function TimerInner() {
     };
 
     const handleValidateReps = () => {
+        playBeep();
         advanceStep();
     };
 
@@ -274,7 +309,11 @@ function TimerInner() {
                     <h1 className="text-white text-4xl md:text-5xl font-extrabold tracking-tight leading-tight drop-shadow-md">
                         {exerciseName}
                     </h1>
-                    <p className="text-white/80 text-xl font-medium mt-2">{groupName}</p>
+                    {isWork && (
+                        <div className="mt-2">
+                            <ExerciseGroupBadge group={currentStep.group} />
+                        </div>
+                    )}
                 </div>
 
                 <div className="flex justify-center items-center py-2 z-10 w-full">
@@ -285,6 +324,16 @@ function TimerInner() {
                 <p className="text-white/60 text-lg font-medium uppercase tracking-[0.2em] mb-8">
                     {timerSuffix}
                 </p>
+
+                {/* Next exercise preview */}
+                {nextWorkStep && (
+                    <div className="mt-4">
+                        <NextExercisePreview
+                            exerciseName={nextWorkStep.name}
+                            group={nextWorkStep.group}
+                        />
+                    </div>
+                )}
 
                 {/* Background icon */}
                 <div className="absolute inset-0 pointer-events-none opacity-10 flex items-center justify-center">

@@ -56,6 +56,55 @@ export function formatDuration(seconds: number): string {
 }
 
 /**
+ * Test function to verify the optimized exercise sequencing algorithm
+ */
+export function testOptimizedSequencing() {
+    console.log("Testing optimized exercise sequencing algorithm...");
+
+    // Test 1: Two groups
+    const test1 = [
+        { name: "Push-ups", group: "Chest", type: "reps" as const, value: 10 },
+        { name: "Pull-ups", group: "Back", type: "reps" as const, value: 8 },
+        { name: "Bench Press", group: "Chest", type: "reps" as const, value: 12 },
+        { name: "Rows", group: "Back", type: "reps" as const, value: 10 },
+    ];
+    const result1 = optimizeExerciseSequence(test1);
+    console.log("Test 1 (2 groups):", result1.map(ex => `${ex.name}(${ex.group})`));
+    const groups1 = result1.map(ex => ex.group);
+    if (groups1.join('') !== 'ChestBackChestBack') {
+        console.error("Test 1 FAILED: Expected alternation Chest-Back-Chest-Back");
+        return false;
+    }
+
+    // Test 2: Three groups
+    const test2 = [
+        { name: "Squats", group: "Legs", type: "reps" as const, value: 15 },
+        { name: "Push-ups", group: "Chest", type: "reps" as const, value: 10 },
+        { name: "Rows", group: "Back", type: "reps" as const, value: 10 },
+        { name: "Lunges", group: "Legs", type: "reps" as const, value: 12 },
+        { name: "Bench Press", group: "Chest", type: "reps" as const, value: 12 },
+        { name: "Pull-ups", group: "Back", type: "reps" as const, value: 8 },
+    ];
+    const result2 = optimizeExerciseSequence(test2);
+    console.log("Test 2 (3 groups):", result2.map(ex => `${ex.name}(${ex.group})`));
+
+    // Check that no group appears consecutively (except if forced by limited exercises)
+    let consecutiveCount = 0;
+    for (let i = 1; i < result2.length; i++) {
+        if (result2[i].group === result2[i-1].group) {
+            consecutiveCount++;
+        }
+    }
+    if (consecutiveCount > 1) { // Allow 1 consecutive due to uneven distribution
+        console.error("Test 2 FAILED: Too many consecutive exercises from same group");
+        return false;
+    }
+
+    console.log("Test PASSED: Optimized sequencing works correctly");
+    return true;
+}
+
+/**
  * Test function to verify buildSessionSteps works correctly
  */
 export function testBuildSessionSteps() {
@@ -103,13 +152,17 @@ export function buildSessionSteps(config: WorkoutConfig): SessionStep[] {
         }
     }
 
+    // Optimize the exercise sequence to maximize alternation between muscle groups
+    const optimizedExercises = optimizeExerciseSequence(allExercises);
+
     console.log("buildSessionSteps: allExercises", allExercises);
-    console.log("buildSessionSteps: first exercise", allExercises[0]);
+    console.log("buildSessionSteps: optimizedExercises", optimizedExercises);
+    console.log("buildSessionSteps: first exercise", optimizedExercises[0]);
 
     // Build sequence: [work, rest, work, rest, ..., work] (no trailing rest)
     // La séance ne commence jamais par un repos - the session never starts with a rest
-    for (let i = 0; i < allExercises.length; i++) {
-        const ex = allExercises[i];
+    for (let i = 0; i < optimizedExercises.length; i++) {
+        const ex = optimizedExercises[i];
 
         if (ex.type === "time") {
             steps.push({ kind: "work", name: ex.name, group: ex.group, type: "time", duration: ex.value });
@@ -120,7 +173,7 @@ export function buildSessionSteps(config: WorkoutConfig): SessionStep[] {
         console.log(`Step ${steps.length - 1}: Added work step for ${ex.name} (${ex.type})`);
 
         // Add rest after every exercise except the last
-        if (i < allExercises.length - 1) {
+        if (i < optimizedExercises.length - 1) {
             steps.push({ kind: "rest", duration: restDuration });
             console.log(`Step ${steps.length - 1}: Added rest step (${restDuration}s)`);
         }
@@ -152,9 +205,75 @@ export function encodeSession(steps: SessionStep[]): string {
     console.log("encodeSession: json length", json.length);
     // btoa is available in browser; use Buffer in Node
     if (typeof window !== "undefined") {
-        return btoa(json);
+        // Properly encode UTF-8 characters for base64
+        return btoa(unescape(encodeURIComponent(json)));
     }
     return Buffer.from(json, "utf-8").toString("base64");
+}
+
+/**
+ * Optimizes the exercise sequence to maximize alternation between muscle groups.
+ * Uses a greedy algorithm that selects the exercise from the group that was used least recently.
+ */
+export function optimizeExerciseSequence(
+    exercises: Array<{ name: string; group: string; type: "time" | "reps"; value: number }>
+): Array<{ name: string; group: string; type: "time" | "reps"; value: number }> {
+    if (exercises.length <= 1) return exercises;
+
+    const result: Array<{ name: string; group: string; type: "time" | "reps"; value: number }> = [];
+    const remainingExercises = [...exercises];
+    const groupLastUsed: Record<string, number> = {};
+
+    // Start with one exercise from each group to establish the baseline
+    const groups = new Set(exercises.map(ex => ex.group));
+    const groupsArray = Array.from(groups);
+
+    for (const group of groupsArray) {
+        const exerciseIndex = remainingExercises.findIndex(ex => ex.group === group);
+        if (exerciseIndex !== -1) {
+            const exercise = remainingExercises.splice(exerciseIndex, 1)[0];
+            result.push(exercise);
+            groupLastUsed[group] = result.length - 1;
+        }
+    }
+
+    // For remaining exercises, always pick from the group that was used least recently
+    while (remainingExercises.length > 0) {
+        // Calculate distance for each group (how many exercises ago it was last used)
+        const groupDistances: Record<string, number> = {};
+        for (const group of groupsArray) {
+            if (groupLastUsed[group] !== undefined) {
+                groupDistances[group] = result.length - groupLastUsed[group];
+            } else {
+                groupDistances[group] = Infinity; // Group never used, highest priority
+            }
+        }
+
+        // Find the group with maximum distance (least recently used)
+        let maxDistance = -1;
+        let selectedGroup = "";
+        for (const [group, distance] of Object.entries(groupDistances)) {
+            if (distance > maxDistance) {
+                maxDistance = distance;
+                selectedGroup = group;
+            }
+        }
+
+        // Find and add the next exercise from that group
+        const exerciseIndex = remainingExercises.findIndex(ex => ex.group === selectedGroup);
+        if (exerciseIndex !== -1) {
+            const exercise = remainingExercises.splice(exerciseIndex, 1)[0];
+            result.push(exercise);
+            groupLastUsed[selectedGroup] = result.length - 1;
+        } else {
+            // Fallback: if no exercise from selected group, take first remaining
+            const exercise = remainingExercises.shift()!;
+            result.push(exercise);
+            groupLastUsed[exercise.group] = result.length - 1;
+        }
+    }
+
+    return result;
 }
 
 /**
@@ -165,7 +284,8 @@ export function decodeSession(encoded: string): SessionStep[] | null {
     try {
         let json: string;
         if (typeof window !== "undefined") {
-            json = atob(encoded);
+            // Handle UTF-8 characters properly by using decodeURIComponent with escape
+            json = decodeURIComponent(escape(atob(encoded)));
         } else {
             json = Buffer.from(encoded, "base64").toString("utf-8");
         }
@@ -173,8 +293,8 @@ export function decodeSession(encoded: string): SessionStep[] | null {
         console.log("decodeSession: decoded steps", decoded);
         console.log("decodeSession: first step", decoded[0]);
         return decoded;
-    } catch {
-        console.error("decodeSession: failed to decode", encoded);
+    } catch (error) {
+        console.error("decodeSession: failed to decode", encoded, error);
         return null;
     }
 }
