@@ -59,7 +59,10 @@ function TimerInner() {
         if (steps && steps.length > 0 && currentStepIndex === 0) {
             const firstStep = steps[0];
             if (firstStep.kind === "work") {
-                console.log(`🚀 Début de la session - Premier exercice: ${firstStep.name} (${firstStep.group})`);
+                const timing = firstStep.type === "time"
+                    ? `${firstStep.duration}s`
+                    : `${firstStep.reps} reps`;
+                console.log(`🚀 Début de la session - Premier exercice: ${firstStep.name} (${firstStep.group}) - ${timing}`);
             } else {
                 console.log(`🚀 Début de la session - Premier repos: ${firstStep.duration}s`);
             }
@@ -127,7 +130,10 @@ function TimerInner() {
         } else {
             const nextStep = steps[nextIndex];
             if (nextStep.kind === "work") {
-                console.log(`💪 Début de l'exercice: ${nextStep.name} (${nextStep.group})`);
+                const timing = nextStep.type === "time"
+                    ? `${nextStep.duration}s`
+                    : `${nextStep.reps} reps`;
+                console.log(`💪 Début de l'exercice: ${nextStep.name} (${nextStep.group}) - ${timing}`);
             } else {
                 console.log(`⏰ Début du repos: ${nextStep.duration}s`);
             }
@@ -147,16 +153,29 @@ function TimerInner() {
         if (sessionState !== "running") return;
 
         if (timeLeft <= 0) {
-            advanceStep();
-            return;
+            // Use setTimeout to avoid immediate recursion
+            const timeoutId = setTimeout(() => {
+                advanceStep();
+            }, 0);
+            return () => clearTimeout(timeoutId);
         }
 
         const interval = setInterval(() => {
-            setTimeLeft(prev => prev - 1);
+            setTimeLeft(prev => {
+                const newTime = prev - 1;
+                if (newTime <= 0) {
+                    // Schedule advanceStep for next tick to avoid state update conflicts
+                    setTimeout(() => {
+                        advanceStep();
+                    }, 0);
+                    return 0;
+                }
+                return newTime;
+            });
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [timeLeft, sessionState, currentStep, advanceStep]);
+    }, [timeLeft, sessionState, currentStep]);
 
     // ── Controls ─────────────────────────────────────────────────────────
     const handleSkip = () => {
