@@ -57,8 +57,20 @@ describe('buildSessionSteps with optimized sequencing', () => {
         const config = {
             globalRestTime: 30,
             groups: {
-                'Group A': [{ id: '1', name: 'Ex1', type: 'reps' as const, value: 10 }],
-                'Group B': [{ id: '2', name: 'Ex2', type: 'reps' as const, value: 10 }],
+                'Group A': {
+                    id: 'group-a',
+                    name: 'Group A',
+                    icon: 'Dumbbell',
+                    createdAt: new Date().toISOString(),
+                    exercises: [{ id: '1', name: 'Ex1', type: 'reps' as const, value: 10 }]
+                },
+                'Group B': {
+                    id: 'group-b',
+                    name: 'Group B',
+                    icon: 'Activity',
+                    createdAt: new Date().toISOString(),
+                    exercises: [{ id: '2', name: 'Ex2', type: 'reps' as const, value: 10 }]
+                },
             }
         };
         const steps = buildSessionSteps(config);
@@ -69,14 +81,26 @@ describe('buildSessionSteps with optimized sequencing', () => {
         const config = {
             globalRestTime: 30,
             groups: {
-                'Chest': [
-                    { id: '1', name: 'Push-ups', type: 'reps' as const, value: 10 },
-                    { id: '3', name: 'Bench Press', type: 'reps' as const, value: 12 },
-                ],
-                'Back': [
-                    { id: '2', name: 'Pull-ups', type: 'reps' as const, value: 8 },
-                    { id: '4', name: 'Rows', type: 'reps' as const, value: 10 },
-                ],
+                'Chest': {
+                    id: 'chest-group',
+                    name: 'Chest',
+                    icon: 'Dumbbell',
+                    createdAt: new Date().toISOString(),
+                    exercises: [
+                        { id: '1', name: 'Push-ups', type: 'reps' as const, value: 10 },
+                        { id: '3', name: 'Bench Press', type: 'reps' as const, value: 12 },
+                    ]
+                },
+                'Back': {
+                    id: 'back-group',
+                    name: 'Back',
+                    icon: 'Activity',
+                    createdAt: new Date().toISOString(),
+                    exercises: [
+                        { id: '2', name: 'Pull-ups', type: 'reps' as const, value: 8 },
+                        { id: '4', name: 'Rows', type: 'reps' as const, value: 10 },
+                    ]
+                },
             }
         };
         const steps = buildSessionSteps(config);
@@ -91,14 +115,26 @@ describe('buildSessionSteps with optimized sequencing', () => {
         const config = {
             globalRestTime: 30,
             groups: {
-                'Chest': [
-                    { id: '1', name: 'Push-ups', type: 'reps' as const, value: 10 },
-                    { id: '3', name: 'Bench Press', type: 'reps' as const, value: 12 },
-                ],
-                'Back': [
-                    { id: '2', name: 'Pull-ups', type: 'reps' as const, value: 8 },
-                    { id: '4', name: 'Rows', type: 'reps' as const, value: 10 },
-                ],
+                'Chest': {
+                    id: 'chest-group',
+                    name: 'Chest',
+                    icon: 'Dumbbell',
+                    createdAt: new Date().toISOString(),
+                    exercises: [
+                        { id: '1', name: 'Push-ups', type: 'reps' as const, value: 10 },
+                        { id: '3', name: 'Bench Press', type: 'reps' as const, value: 12 },
+                    ]
+                },
+                'Back': {
+                    id: 'back-group',
+                    name: 'Back',
+                    icon: 'Activity',
+                    createdAt: new Date().toISOString(),
+                    exercises: [
+                        { id: '2', name: 'Pull-ups', type: 'reps' as const, value: 8 },
+                        { id: '4', name: 'Rows', type: 'reps' as const, value: 10 },
+                    ]
+                },
             }
         };
         const steps = buildSessionSteps(config);

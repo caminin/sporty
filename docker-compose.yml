@@ -1,5 +1,8 @@
 version: '3.8'
 
+volumes:
+  sporty_data:
+
 services:
   sporty:
     image: rcharlot49/sporty:2026-03-01
@@ -8,6 +11,9 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=production
+      - DATA_DIR=/data
+    volumes:
+      - sporty_data:/data
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000"]

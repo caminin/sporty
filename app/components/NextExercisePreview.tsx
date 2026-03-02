@@ -10,10 +10,10 @@ interface NextExercisePreviewProps {
 
 export function NextExercisePreview({ exerciseName, group, className = "" }: NextExercisePreviewProps) {
     return (
-        <div className={`text-center py-2 ${className}`}>
-            <div className="text-sm text-gray-600 mb-1">Suivant</div>
-            <div className="text-base font-medium text-gray-900">{exerciseName}</div>
-            <div className="text-xs text-gray-500">{group}</div>
+        <div className={`text-center py-3 px-4 rounded-xl bg-black/20 backdrop-blur-sm border border-white/10 ${className}`}>
+            <div className="text-sm text-white/80 font-semibold mb-2 tracking-wide uppercase">Suivant</div>
+            <div className="text-lg font-bold text-white mb-1">{exerciseName}</div>
+            <div className="text-sm text-white/70 font-medium">{group}</div>
         </div>
     );
 }

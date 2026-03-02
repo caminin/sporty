@@ -2,10 +2,11 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import type { SessionStep, SessionState } from "../workout-types";
+import type { SessionStep, SessionState } from "../exercises/types";
 import { decodeSession } from "../session-utils";
 import { ExerciseGroupBadge } from "../components/ExerciseGroupBadge";
 import { NextExercisePreview } from "../components/NextExercisePreview";
+import { ExerciseTransitionDisplay } from "../components/ExerciseTransitionDisplay";
 
 /* ─── Inner component (needs Suspense for useSearchParams) ────────────────── */
 
@@ -50,6 +51,7 @@ function TimerInner() {
     }, [steps]);
 
     const [timeLeft, setTimeLeft] = useState<number>(initialTimeLeft);
+    const [preparationCountdown, setPreparationCountdown] = useState<number>(5);
     const [isAudioEnabled, setIsAudioEnabled] = useState(true);
 
     const currentStep = steps ? steps[currentStepIndex] : null;
@@ -97,20 +99,36 @@ function TimerInner() {
 
         try {
             const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-            const oscillator = audioContext.createOscillator();
-            const gainNode = audioContext.createGain();
 
-            oscillator.connect(gainNode);
-            gainNode.connect(audioContext.destination);
+            // Helper function to play a single tone
+            const playTone = (frequency: number, duration: number, volume: number, startTime: number) => {
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
 
-            oscillator.frequency.setValueAtTime(800, audioContext.currentTime); // Frequency in Hz
-            oscillator.type = 'sine';
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
 
-            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+                oscillator.frequency.setValueAtTime(frequency, startTime);
+                oscillator.type = 'sine';
 
-            oscillator.start(audioContext.currentTime);
-            oscillator.stop(audioContext.currentTime + 0.3);
+                gainNode.gain.setValueAtTime(volume, startTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
+
+                oscillator.start(startTime);
+                oscillator.stop(startTime + duration);
+            };
+
+            const now = audioContext.currentTime;
+
+            // First light beep: 600Hz, 0.15s, volume 0.2
+            playTone(600, 0.15, 0.2, now);
+
+            // Second light beep: 600Hz, 0.15s, volume 0.2 (0.1s after first)
+            playTone(600, 0.15, 0.2, now + 0.1);
+
+            // Normal beep: 800Hz, 0.3s, volume 0.3 (0.2s after second)
+            playTone(800, 0.3, 0.3, now + 0.3);
+
         } catch (error) {
             console.warn("Audio playback failed:", error);
         }
@@ -133,12 +151,25 @@ function TimerInner() {
                 const timing = nextStep.type === "time"
                     ? `${nextStep.duration}s`
                     : `${nextStep.reps} reps`;
-                console.log(`💪 Début de l'exercice: ${nextStep.name} (${nextStep.group}) - ${timing}`);
+                // Check if this is not the first work step - if so, show preparation phase
+                const workStepsBeforeNext = steps.slice(0, nextIndex).filter(s => s.kind === "work").length;
+                if (workStepsBeforeNext > 0) {
+                    // This is not the first exercise, show preparation phase
+                    console.log(`⏱️ Phase de préparation pour: ${nextStep.name} (${nextStep.group}) - ${timing}`);
+                    setCurrentStepIndex(nextIndex);
+                    setPreparationCountdown(5); // Reset countdown
+                    setSessionState("preparing");
+                } else {
+                    // This is the first exercise, start immediately
+                    console.log(`💪 Début de l'exercice: ${nextStep.name} (${nextStep.group}) - ${timing}`);
+                    setCurrentStepIndex(nextIndex);
+                    setSessionState("running");
+                }
             } else {
                 console.log(`⏰ Début du repos: ${nextStep.duration}s`);
+                setCurrentStepIndex(nextIndex);
+                setSessionState("running");
             }
-            setCurrentStepIndex(nextIndex);
-            setSessionState("running");
         }
     }, [currentStepIndex, steps, playBeep]);
 
@@ -172,6 +203,24 @@ function TimerInner() {
 
         return () => clearInterval(interval);
     }, [timeLeft, sessionState, currentStep]);
+
+    // ── Preparation countdown timer ──────────────────────────────────────
+    useEffect(() => {
+        if (sessionState !== "preparing") return;
+        if (preparationCountdown <= 0) {
+            // Preparation finished, start the exercise
+            console.log("🚀 Préparation terminée, début de l'exercice");
+            setSessionState("running");
+            setPreparationCountdown(5); // Reset for next time
+            return;
+        }
+
+        const interval = setInterval(() => {
+            setPreparationCountdown(prev => prev - 1);
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [preparationCountdown, sessionState]);
 
     // ── Controls ─────────────────────────────────────────────────────────
     const handleSkip = () => {
@@ -232,6 +281,23 @@ function TimerInner() {
     const exerciseName = isWork ? currentStep.name : "Repos";
     const groupName = isWork ? currentStep.group : "Prépare-toi pour la suite";
 
+    // ── Preparation screen ───────────────────────────────────────────────
+    if (sessionState === "preparing") {
+        return (
+            <ExerciseTransitionDisplay
+                exerciseName={exerciseName}
+                group={groupName}
+                countdown={preparationCountdown}
+                onQuit={handleFinish}
+                onSkip={() => {
+                    console.log("⏭️ Préparation passée par l'utilisateur");
+                    setSessionState("running");
+                    setPreparationCountdown(5); // Reset for next time
+                }}
+            />
+        );
+    }
+
     // ── Finished screen ──────────────────────────────────────────────────
     if (sessionState === "finished") {
         return (
@@ -282,6 +348,7 @@ function TimerInner() {
 
     // ── Progress numbers ─────────────────────────────────────────────────
     const displayedWorkStep = completedWorkSteps + (isWork ? 1 : 0);
+    const progressText = isWork ? `${displayedWorkStep} / ${totalWorkSteps}` : "Repos";
 
     return (
         <div
@@ -298,7 +365,7 @@ function TimerInner() {
                 <div className="flex items-center gap-2">
                     {/* Progress indicator */}
                     <span className="text-white/80 text-sm font-bold bg-white/10 rounded-full px-3 py-1">
-                        {isWork ? `${displayedWorkStep} / ${totalWorkSteps}` : "Repos"}
+                        {progressText}
                     </span>
                     <button
                         onClick={() => setIsAudioEnabled(a => !a)}
@@ -308,6 +375,13 @@ function TimerInner() {
                         <span className="material-symbols-outlined text-2xl text-white">
                             {isAudioEnabled ? "volume_up" : "volume_off"}
                         </span>
+                    </button>
+                    <button
+                        onClick={handleFinish}
+                        className="flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition-colors size-10 backdrop-blur-sm"
+                        aria-label="Quitter la séance"
+                    >
+                        <span className="material-symbols-outlined text-2xl text-white">close</span>
                     </button>
                 </div>
             </div>

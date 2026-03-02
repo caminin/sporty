@@ -10,8 +10,18 @@ export interface Exercise {
 
 export interface WorkoutConfig {
     globalRestTime: number;
-    groups: Record<string, Exercise[]>;
+    groups: Record<string, Group>;
 }
+
+export interface Group {
+    id: string;
+    name: string;
+    icon: string; // nom de l'icône Lucide
+    createdAt: string;
+    exercises: Exercise[];
+}
+
+export interface CustomGroup extends Group {} // Backward compatibility
 
 /** A single step in a workout session sequence. */
 export type SessionStep =
@@ -20,4 +30,5 @@ export type SessionStep =
     | { kind: "rest"; duration: number };
 
 /** Timer state machine states. */
-export type SessionState = "running" | "paused" | "finished";
+export type SessionState = "running" | "paused" | "finished" | "preparing";
+

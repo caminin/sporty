@@ -1,0 +1,63 @@
+{
+  "globalRestTime": 15,
+  "groups": {
+    "Cardio endurance": {
+      "id": "grp-cardio",
+      "name": "Cardio endurance",
+      "icon": "activity",
+      "createdAt": "2025-03-03T00:00:00.000Z",
+      "exercises": [
+        { "id": "ce-1", "name": "Burpees", "type": "time", "value": 45 },
+        { "id": "ce-2", "name": "Montées de genoux", "type": "reps", "value": 20 },
+        { "id": "ce-3", "name": "Shadow badminton", "type": "time", "value": 60 },
+        { "id": "ce-4", "name": "Corde à sauter", "type": "time", "value": 60 },
+        { "id": "ce-5", "name": "Mountain climbers", "type": "time", "value": 45 }
+      ]
+    },
+    "Épaules et frappe": {
+      "id": "grp-epaules",
+      "name": "Épaules et frappe",
+      "icon": "target",
+      "createdAt": "2025-03-03T00:00:00.000Z",
+      "exercises": [
+        { "id": "ef-1", "name": "Pompes", "type": "reps", "value": 15 },
+        { "id": "ef-2", "name": "Pompes explosifs", "type": "reps", "value": 10 },
+        { "id": "ef-3", "name": "Rotations épaules (bras tendus)", "type": "reps", "value": 20 }
+      ]
+    },
+    "Adbos": {
+      "id": "grp-abdos",
+      "name": "Adbos",
+      "icon": "zap",
+      "createdAt": "2025-03-03T00:00:00.000Z",
+      "exercises": [
+        { "id": "ab-1", "name": "Gainage face", "type": "time", "value": 60 },
+        { "id": "ab-2", "name": "Gainage côtés", "type": "time", "value": 30 },
+        { "id": "ab-3", "name": "Crunchs", "type": "reps", "value": 20 },
+        { "id": "ab-4", "name": "Russian twists", "type": "reps", "value": 20 },
+        { "id": "ab-5", "name": "Relevés de jambes", "type": "reps", "value": 15 }
+      ]
+    },
+    "Explosivité jambes": {
+      "id": "grp-explo",
+      "name": "Explosivité jambes",
+      "icon": "zap",
+      "createdAt": "2025-03-03T00:00:00.000Z",
+      "exercises": [
+        { "id": "ej-1", "name": "Squat jumps", "type": "reps", "value": 15 },
+        { "id": "ej-2", "name": "Fentes sautées", "type": "reps", "value": 12 }
+      ]
+    },
+    "Agilité et déplacements": {
+      "id": "grp-agilite",
+      "name": "Agilité et déplacements",
+      "icon": "footprints",
+      "createdAt": "2025-03-03T00:00:00.000Z",
+      "exercises": [
+        { "id": "ad-1", "name": "Pas chassés latéraux", "type": "time", "value": 45 },
+        { "id": "ad-2", "name": "Sauts latéraux", "type": "reps", "value": 20 },
+        { "id": "ad-4", "name": "Shuttle runs courts", "type": "time", "value": 30 }
+      ]
+    }
+  }
+}

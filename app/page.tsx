@@ -4,9 +4,12 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Clock, Dumbbell } from "lucide-react";
-import type { Exercise, WorkoutConfig } from "./workout-types";
-import { getWorkoutConfig } from "./exercises-actions";
+import type { Exercise, WorkoutConfig } from "./exercises/types";
+import { getWorkoutConfig } from "./exercises/actions";
 import { buildSessionSteps, encodeSession, estimateSessionDuration, formatDuration, testBuildSessionSteps } from "./session-utils";
+import { useExerciseList } from "./contexts/ExerciseListContext";
+import { ExerciseListSelector } from "./components/ExerciseListSelector";
+import { renderIconByName } from "./exercises/icons";
 
 const STORAGE_KEY = "sporty_session_selection";
 
@@ -39,8 +42,8 @@ function loadSelection(config: WorkoutConfig): Set<string> {
 
 function getAllIds(config: WorkoutConfig): Set<string> {
     const ids = new Set<string>();
-    for (const exercises of Object.values(config.groups)) {
-        for (const ex of exercises) ids.add(ex.id);
+    for (const group of Object.values(config.groups)) {
+        for (const ex of group.exercises) ids.add(ex.id);
     }
     return ids;
 }
@@ -134,11 +137,15 @@ function ExerciseGroupBlock({
     exercises,
     selectedIds,
     onToggle,
+    isCustom = false,
+    icon,
 }: {
     groupName: string;
     exercises: Exercise[];
     selectedIds: Set<string>;
     onToggle: (id: string) => void;
+    isCustom?: boolean;
+    icon?: string;
 }) {
     const style = GROUP_STYLES[groupName] || DEFAULT_STYLE;
     const selectedCount = exercises.filter((ex) => selectedIds.has(ex.id)).length;
@@ -146,9 +153,15 @@ function ExerciseGroupBlock({
     return (
         <div className={`overflow-hidden rounded-xl bg-white dark:bg-surface-dark shadow-sm ring-1 ring-black/5 dark:ring-white/5 ${style.borderClass}`}>
             {/* Group header */}
-            <div className={`flex items-center gap-3 px-4 py-3 ${style.colorClass} bg-opacity-20`}>
-                <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg ${style.colorClass}`}>
-                    <span className="material-symbols-outlined text-base">{style.icon}</span>
+            <div className={`flex items-center gap-3 px-4 py-3 ${isCustom ? 'bg-[#13ec5b]/10 text-[#13ec5b]' : style.colorClass + ' bg-opacity-20'}`}>
+                <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg ${isCustom ? 'bg-[#13ec5b]/20' : style.colorClass}`}>
+                    {icon ? (
+                        renderIconByName(icon, {
+                            className: isCustom ? "w-5 h-5 text-[#13ec5b]" : "w-5 h-5"
+                        }) || <Dumbbell className="w-5 h-5" />
+                    ) : (
+                        <span className="material-symbols-outlined text-base">{style.icon}</span>
+                    )}
                 </div>
                 <h3 className="font-bold text-slate-900 dark:text-white">{groupName}</h3>
                 <span className="ml-auto text-xs font-medium text-slate-400 dark:text-text-muted-dark">
@@ -222,9 +235,11 @@ function FloatingActionButton({
 
         // Build a filtered config with only selected exercises
         const filteredGroups: WorkoutConfig["groups"] = {};
-        for (const [groupName, exercises] of Object.entries(config.groups)) {
-            const selected = exercises.filter((ex) => selectedIds.has(ex.id));
-            if (selected.length > 0) filteredGroups[groupName] = selected;
+        for (const [groupName, group] of Object.entries(config.groups)) {
+            const selected = group.exercises.filter((ex) => selectedIds.has(ex.id));
+            if (selected.length > 0) {
+                filteredGroups[groupName] = { ...group, exercises: selected };
+            }
         }
         const filteredConfig: WorkoutConfig = { ...config, groups: filteredGroups };
 
@@ -277,16 +292,35 @@ function FloatingActionButton({
 export default function BadmintonSessionPage() {
     const [config, setConfig] = useState<WorkoutConfig | null>(null);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const { selectedListId, setSelectedListId } = useExerciseList();
 
     useEffect(() => {
         // Test buildSessionSteps function
         testBuildSessionSteps();
 
-        getWorkoutConfig().then((cfg) => {
+        loadWorkoutConfig();
+    }, [selectedListId]);
+
+    const loadWorkoutConfig = async () => {
+        try {
+            const cfg = await getWorkoutConfig(selectedListId);
             setConfig(cfg);
             setSelectedIds(loadSelection(cfg));
-        });
-    }, []);
+        } catch (error) {
+            console.error('Failed to load workout config:', error);
+            // En cas d'erreur, essayer avec la liste par défaut
+            if (selectedListId !== 'default') {
+                try {
+                    const defaultCfg = await getWorkoutConfig('default');
+                    setConfig(defaultCfg);
+                    setSelectedIds(loadSelection(defaultCfg));
+                    setSelectedListId('default'); // Revenir à la liste par défaut
+                } catch (defaultError) {
+                    console.error('Failed to load default workout config:', defaultError);
+                }
+            }
+        }
+    };
 
     const handleToggle = (exerciseId: string) => {
         if (!config) return;
@@ -305,7 +339,7 @@ export default function BadmintonSessionPage() {
     // Count only selected exercises for the summary
     const totalSelected = config
         ? Object.values(config.groups).reduce(
-            (sum, exs) => sum + exs.filter((ex) => selectedIds.has(ex.id)).length,
+            (sum, group) => sum + group.exercises.filter((ex) => selectedIds.has(ex.id)).length,
             0
         )
         : 0;
@@ -319,6 +353,14 @@ export default function BadmintonSessionPage() {
                 <Header />
 
                 <main className="flex flex-col gap-6 p-5">
+                    {/* Exercise List Selector */}
+                    <section className="rounded-2xl bg-white dark:bg-surface-dark p-6 shadow-md ring-1 ring-black/5 dark:ring-white/5">
+                        <ExerciseListSelector
+                            selectedListId={selectedListId}
+                            onListChange={setSelectedListId}
+                        />
+                    </section>
+
                     {/* Intensity + Summary card */}
                     <section className="rounded-2xl bg-white dark:bg-surface-dark p-6 shadow-md ring-1 ring-black/5 dark:ring-white/5">
                         <IntensityControl />
@@ -347,13 +389,15 @@ export default function BadmintonSessionPage() {
                             </div>
                         ) : (
                             <div className="flex flex-col gap-4">
-                                {Object.entries(config.groups).map(([groupName, exercises]) => (
+                                {Object.entries(config.groups).map(([groupName, group]) => (
                                     <ExerciseGroupBlock
                                         key={groupName}
                                         groupName={groupName}
-                                        exercises={exercises}
+                                        exercises={group.exercises}
                                         selectedIds={selectedIds}
                                         onToggle={handleToggle}
+                                        isCustom={group.id.startsWith("custom_")}
+                                        icon={group.icon}
                                     />
                                 ))}
                             </div>

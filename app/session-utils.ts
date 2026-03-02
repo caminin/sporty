@@ -1,4 +1,4 @@
-import type { WorkoutConfig, SessionStep } from "./workout-types";
+import type { WorkoutConfig, SessionStep } from "./exercises/types";
 
 
 /**
@@ -22,8 +22,8 @@ const SECONDS_PER_REP = 3;
 export function estimateSessionDuration(config: WorkoutConfig, selectedIds: Set<string>): number {
     const selected: Array<{ type: "time" | "reps"; value: number }> = [];
 
-    for (const exercises of Object.values(config.groups)) {
-        for (const ex of exercises) {
+    for (const group of Object.values(config.groups)) {
+        for (const ex of group.exercises) {
             if (selectedIds.has(ex.id)) {
                 selected.push({ type: ex.type, value: ex.value });
             }
@@ -111,12 +111,24 @@ export function testBuildSessionSteps() {
     const testConfig: WorkoutConfig = {
         globalRestTime: 30,
         groups: {
-            "Test Group 1": [
-                { id: "test-1", name: "Test Exercise 1", type: "reps", value: 10 }
-            ],
-            "Test Group 2": [
-                { id: "test-2", name: "Test Exercise 2", type: "time", value: 45 }
-            ]
+            "Test Group 1": {
+                id: "test-group-1",
+                name: "Test Group 1",
+                icon: "Dumbbell",
+                createdAt: new Date().toISOString(),
+                exercises: [
+                    { id: "test-1", name: "Test Exercise 1", type: "reps", value: 10 }
+                ]
+            },
+            "Test Group 2": {
+                id: "test-group-2",
+                name: "Test Group 2",
+                icon: "Activity",
+                createdAt: new Date().toISOString(),
+                exercises: [
+                    { id: "test-2", name: "Test Exercise 2", type: "time", value: 45 }
+                ]
+            }
         }
     };
 
@@ -144,8 +156,8 @@ export function buildSessionSteps(config: WorkoutConfig): SessionStep[] {
     // Flatten all exercises from all non-empty groups
     const allExercises: Array<{ name: string; group: string; type: "time" | "reps"; value: number }> = [];
 
-    for (const [groupName, exercises] of Object.entries(config.groups)) {
-        for (const ex of exercises) {
+    for (const [groupName, group] of Object.entries(config.groups)) {
+        for (const ex of group.exercises) {
             allExercises.push({ name: ex.name, group: groupName, type: ex.type, value: ex.value });
         }
     }
