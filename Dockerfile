@@ -20,6 +20,9 @@ FROM node:20-alpine AS runner
 
 WORKDIR /app
 
+# Install su-exec for privilege dropping in entrypoint
+RUN apk add --no-cache su-exec
+
 # Create a non-root user
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
@@ -29,11 +32,12 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Copy exercises.json and make it writable
-COPY --chown=nextjs:nodejs app/exercises.json ./app/exercises.json
+# Copy exercises data (seed pour initialisation volume vide)
+COPY --chown=nextjs:nodejs app/exercises/default-seed.json ./app/exercises/default-seed.json
 
-# Switch to non-root user
-USER nextjs
+# Entrypoint: chown /data pour permettre l'écriture par nextjs (volume Docker)
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 
 # Expose the port the app runs on
 EXPOSE 3000
@@ -42,5 +46,6 @@ EXPOSE 3000
 ENV PORT=3000
 ENV NODE_ENV=production
 
-# Start the application
+# L'entrypoint s'exécute en root, chown /data, puis lance node en tant que nextjs
+ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["node", "server.js"]
