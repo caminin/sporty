@@ -35,6 +35,14 @@ function TimerInner() {
         setSteps(decoded);
     }, [searchParams]);
 
+    // If first step is work, start in "preparing" state
+    useEffect(() => {
+        if (!steps || steps.length === 0) return;
+        if (steps[0].kind === "work") {
+            setSessionState("preparing");
+        }
+    }, [steps]);
+
     // ── Session state ────────────────────────────────────────────────────
     const [currentStepIndex, setCurrentStepIndex] = useState(0);
     const [sessionState, setSessionState] = useState<SessionState>("running");
@@ -151,16 +159,16 @@ function TimerInner() {
                 const timing = nextStep.type === "time"
                     ? `${nextStep.duration}s`
                     : `${nextStep.reps} reps`;
-                // Check if this is not the first work step - if so, show preparation phase
+                // Show preparation phase only for the first exercise
                 const workStepsBeforeNext = steps.slice(0, nextIndex).filter(s => s.kind === "work").length;
-                if (workStepsBeforeNext > 0) {
-                    // This is not the first exercise, show preparation phase
+                if (workStepsBeforeNext === 0) {
+                    // First exercise: show preparation phase
                     console.log(`⏱️ Phase de préparation pour: ${nextStep.name} (${nextStep.group}) - ${timing}`);
                     setCurrentStepIndex(nextIndex);
                     setPreparationCountdown(5); // Reset countdown
                     setSessionState("preparing");
                 } else {
-                    // This is the first exercise, start immediately
+                    // Subsequent exercises: start immediately
                     console.log(`💪 Début de l'exercice: ${nextStep.name} (${nextStep.group}) - ${timing}`);
                     setCurrentStepIndex(nextIndex);
                     setSessionState("running");
@@ -176,6 +184,7 @@ function TimerInner() {
     // ── Countdown timer (only for time-based steps) ──────────────────────
     const advanceStepRef = useRef(advanceStep);
     advanceStepRef.current = advanceStep;
+    const lastStepIndexRef = useRef(currentStepIndex);
 
     useEffect(() => {
         if (!currentStep) return;
@@ -186,10 +195,18 @@ function TimerInner() {
         if (!isTimeBased) return;
         if (sessionState !== "running") return;
 
+        // Skip creating interval when we just transitioned steps - timeLeft may be stale.
+        // Wait one render for the init effect to set timeLeft to the new step's duration.
+        if (currentStepIndex !== lastStepIndexRef.current) {
+            lastStepIndexRef.current = currentStepIndex;
+            return;
+        }
+
         // Don't advance when timeLeft <= 0 at effect run - that's a stale value from
         // a step transition. We only advance when we decrement to 0 inside the interval.
         if (timeLeft <= 0) return;
 
+        lastStepIndexRef.current = currentStepIndex;
         const interval = setInterval(() => {
             setTimeLeft(prev => {
                 const newTime = prev - 1;
@@ -202,7 +219,7 @@ function TimerInner() {
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [timeLeft, sessionState, currentStep]);
+    }, [timeLeft, sessionState, currentStep, currentStepIndex]);
 
     // ── Preparation countdown timer ──────────────────────────────────────
     useEffect(() => {
@@ -238,7 +255,12 @@ function TimerInner() {
 
     const handleReplay = () => {
         setCurrentStepIndex(0);
-        setSessionState("running");
+        if (steps && steps[0]?.kind === "work") {
+            setPreparationCountdown(5);
+            setSessionState("preparing");
+        } else {
+            setSessionState("running");
+        }
     };
 
     const handleFinish = () => {
@@ -410,7 +432,10 @@ function TimerInner() {
                 </div>
 
                 <div className="flex justify-center items-center py-2 z-10 w-full">
-                    <div className="tabular-nums font-black text-[10rem] sm:text-[14rem] leading-none tracking-tighter drop-shadow-lg select-none">
+                    <div
+                        className="tabular-nums font-black text-[10rem] sm:text-[14rem] leading-none tracking-tighter drop-shadow-lg select-none"
+                        data-testid="timer-display"
+                    >
                         {timerDisplay}
                     </div>
                 </div>

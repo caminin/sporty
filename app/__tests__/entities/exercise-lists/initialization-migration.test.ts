@@ -205,11 +205,11 @@ describe('Exercise Lists - Initialization & Migration', () => {
       expect(list).toBeDefined();
       expect(list!.id).toBe('default');
       expect(list!.name).toBe('Liste par défaut');
-      expect(list!.config.globalRestTime).toBe(15);
+      expect(list!.config.globalRestTime).toBe(20);
       expect(Object.keys(list!.config.groups).length).toBeGreaterThan(0);
       expect(list!.config.groups).toHaveProperty('Cardio endurance');
       expect(list!.config.groups).toHaveProperty('Adbos');
-      expect(list!.config.groups['Cardio endurance'].exercises).toHaveLength(5);
+      expect(list!.config.groups['Cardio endurance'].exercises).toHaveLength(4);
       expect(list!.config.groups['Cardio endurance'].icon).toBe('activity');
     });
 

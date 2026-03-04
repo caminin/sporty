@@ -1,12 +1,13 @@
 'use server';
 
-import { listExerciseLists, loadExerciseList, saveExerciseList, createExerciseList, deleteExerciseList, initializeExerciseLists } from './lists';
+import { listExerciseLists, loadExerciseList, saveExerciseList, createExerciseList, deleteExerciseList, initializeExerciseLists, resetDefaultList } from './lists';
 import { WorkoutConfig } from './types';
 import { migrateWorkoutConfig, validateGroup } from './workout-config';
 
-// Vérifier l'authentification admin
+// Vérifier l'authentification admin (mot de passe depuis ADMIN_PASSWORD, fallback 'sporty' en dev)
 function verifyAdminAuth(password: string): boolean {
-  return password === 'sporty';
+  const expected = process.env.ADMIN_PASSWORD ?? 'sporty';
+  return password === expected;
 }
 
 // Initialiser le système de listes
@@ -81,6 +82,21 @@ export async function createList(name: string, description: string | undefined, 
   } catch (error) {
     console.error('Failed to create exercise list:', error);
     return { success: false, error: 'Failed to create list' };
+  }
+}
+
+// Réinitialiser la liste par défaut avec le contenu du seed (nécessite authentification admin)
+export async function resetListToDefault(password: string) {
+  if (!verifyAdminAuth(password)) {
+    return { success: false, error: 'Invalid admin password' };
+  }
+
+  try {
+    await resetDefaultList();
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to reset default list:', error);
+    return { success: false, error: 'Impossible de réinitialiser la liste par défaut' };
   }
 }
 

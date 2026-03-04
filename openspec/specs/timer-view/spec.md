@@ -43,6 +43,24 @@ The system MUST provide fixed playback controls at the bottom of the screen. The
 - **WHEN** the user taps the "Passer" (Skip) button during preparation countdown
 - **THEN** the countdown stops immediately and the exercise begins
 
+## Requirement: Skip preserves next step timer
+When the user skips the current step, the next step's countdown MUST start with the correct duration for that step. The timer MUST NOT inherit or reuse the remaining time from the previous step.
+
+#### Scenario: Skip from work to rest - correct rest duration
+- **WHEN** the user taps "Passer" during a work step (e.g. 45s exercise with 20s remaining)
+- **AND** the next step is a rest of 30s
+- **THEN** the rest countdown MUST start at 30s (not 20s or any other value)
+
+#### Scenario: Skip from rest to work - correct exercise duration
+- **WHEN** the user taps "Passer" during a rest step (e.g. 30s rest with 10s remaining)
+- **AND** the next step is a work exercise of 45s
+- **THEN** the work countdown MUST start at 45s (not 10s or any other value)
+
+#### Scenario: Skip from work to work (via preparation) - correct next exercise duration
+- **WHEN** the user taps "Passer" during a work step
+- **AND** the next step is another work exercise
+- **THEN** after the preparation phase (or when skipping preparation), the next exercise countdown MUST start at its configured duration
+
 ## Requirement: Audio/Volume Controls
 The system MUST provide an audio toggle/volume control button in the top-right header area.
 
@@ -51,7 +69,7 @@ The system MUST provide an audio toggle/volume control button in the top-right h
 - **THEN** the audio feedback for countdown ticks and interval changes is toggled on or off.
 
 ## Requirement: Réception de la séquence dynamique d'exercices
-Le système DOIT lire le paramètre URL `session` (JSON encodé en base64) et construire la liste des steps à exécuter. Si le paramètre est absent ou invalide, le timer MUST afficher un message d'erreur et proposer un retour à l'accueil.
+Le système DOIT lire le paramètre URL `session` (JSON encodé en base64) et construire la liste des steps à exécuter. Les steps encodés contiennent les valeurs (duration, reps) déjà scalées par l'intensité sélectionnée au lancement. Si le paramètre est absent ou invalide, le timer MUST afficher un message d'erreur et proposer un retour à l'accueil.
 
 #### Scenario: Paramètre session valide
 - **WHEN** l'utilisateur arrive sur `/timer?session=<base64json>`
@@ -60,6 +78,11 @@ Le système DOIT lire le paramètre URL `session` (JSON encodé en base64) et co
 #### Scenario: Paramètre session absent ou invalide
 - **WHEN** l'utilisateur arrive sur `/timer` sans paramètre `session` valide
 - **THEN** un message d'erreur est affiché avec un bouton de retour à l'accueil
+
+#### Scenario: Steps contain scaled values
+- **WHEN** la session a été lancée avec une intensité de 1.5
+- **AND** un exercice de base avait 10 reps ou 60s
+- **THEN** le step reçu par le timer contient 15 reps ou 90s (valeurs scalées)
 
 ## Requirement: Gestion des exercices de type `reps`
 Pour les steps de type `work` avec `type: "reps"`, le système DOIT afficher le nombre de répétitions à effectuer (ex: "15 reps") au lieu d'un compte à rebours. Le timer ne MUST PAS décompter automatiquement. Un bouton "Valider / Terminé" MUST être disponible pour passer manuellement au step suivant.

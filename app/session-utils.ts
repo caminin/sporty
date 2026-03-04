@@ -18,14 +18,16 @@ const SECONDS_PER_REP = 3;
  * Estimates the total session duration in seconds for the given selection.
  * Formula per exercise: STARTUP_SECONDS + (reps × SECONDS_PER_REP) or duration (time-based)
  * Plus globalRestTime between each exercise (not after the last).
+ * Values are scaled by intensity (default 1.0).
  */
-export function estimateSessionDuration(config: WorkoutConfig, selectedIds: Set<string>): number {
+export function estimateSessionDuration(config: WorkoutConfig, selectedIds: Set<string>, intensity = 1.0): number {
     const selected: Array<{ type: "time" | "reps"; value: number }> = [];
 
     for (const group of Object.values(config.groups)) {
         for (const ex of group.exercises) {
             if (selectedIds.has(ex.id)) {
-                selected.push({ type: ex.type, value: ex.value });
+                const scaled = Math.round(ex.value * intensity);
+                selected.push({ type: ex.type, value: scaled });
             }
         }
     }
@@ -149,7 +151,7 @@ export function testBuildSessionSteps() {
     return true;
 }
 
-export function buildSessionSteps(config: WorkoutConfig): SessionStep[] {
+export function buildSessionSteps(config: WorkoutConfig, intensity = 1.0): SessionStep[] {
     const steps: SessionStep[] = [];
     const restDuration = config.globalRestTime;
 
@@ -169,11 +171,12 @@ export function buildSessionSteps(config: WorkoutConfig): SessionStep[] {
     // La séance ne commence jamais par un repos - the session never starts with a rest
     for (let i = 0; i < optimizedExercises.length; i++) {
         const ex = optimizedExercises[i];
+        const scaledValue = Math.round(ex.value * intensity);
 
         if (ex.type === "time") {
-            steps.push({ kind: "work", name: ex.name, group: ex.group, type: "time", duration: ex.value });
+            steps.push({ kind: "work", name: ex.name, group: ex.group, type: "time", duration: scaledValue });
         } else {
-            steps.push({ kind: "work", name: ex.name, group: ex.group, type: "reps", reps: ex.value });
+            steps.push({ kind: "work", name: ex.name, group: ex.group, type: "reps", reps: scaledValue });
         }
 
         // Add rest after every exercise except the last

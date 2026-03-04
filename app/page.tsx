@@ -79,8 +79,7 @@ function Header() {
     );
 }
 
-function IntensityControl() {
-    const [intensity, setIntensity] = useState(1.0);
+function IntensityControl({ value, onChange }: { value: number; onChange: (v: number) => void }) {
     return (
         <>
             <div className="mb-6 flex items-center justify-between">
@@ -88,14 +87,14 @@ function IntensityControl() {
                     <span className="material-symbols-outlined text-primary">speed</span>
                     <h2 className="text-lg font-bold">Intensité Globale</h2>
                 </div>
-                <span className="rounded-lg bg-primary/10 px-3 py-1 text-sm font-bold text-primary">x{intensity}</span>
+                <span className="rounded-lg bg-primary/10 px-3 py-1 text-sm font-bold text-primary">x{value}</span>
             </div>
             <div className="relative mb-8 pt-2">
                 <input
                     className="w-full bg-transparent appearance-none cursor-pointer focus:outline-none"
                     max="2" min="0.5" step="0.1" type="range"
-                    value={intensity}
-                    onChange={(e) => setIntensity(parseFloat(e.target.value))}
+                    value={value}
+                    onChange={(e) => onChange(parseFloat(e.target.value))}
                 />
                 <div className="mt-3 flex justify-between text-xs font-medium text-slate-400 dark:text-text-muted-dark px-1">
                     <span>0.5x</span><span>1x</span><span>1.5x</span><span>2x</span>
@@ -139,6 +138,7 @@ function ExerciseGroupBlock({
     onToggle,
     isCustom = false,
     icon,
+    intensity = 1.0,
 }: {
     groupName: string;
     exercises: Exercise[];
@@ -146,6 +146,7 @@ function ExerciseGroupBlock({
     onToggle: (id: string) => void;
     isCustom?: boolean;
     icon?: string;
+    intensity?: number;
 }) {
     const style = GROUP_STYLES[groupName] || DEFAULT_STYLE;
     const selectedCount = exercises.filter((ex) => selectedIds.has(ex.id)).length;
@@ -196,7 +197,7 @@ function ExerciseGroupBlock({
                                 {ex.name}
                             </span>
                             <span className="rounded-full bg-slate-100 dark:bg-white/10 px-2 py-0.5 text-xs font-semibold text-slate-500 dark:text-text-muted-dark">
-                                {ex.type === "time" ? `${ex.value}s` : `${ex.value} reps`}
+                                {ex.type === "time" ? `${Math.round(ex.value * intensity)}s` : `${Math.round(ex.value * intensity)} reps`}
                             </span>
                             {/* Toggle indicator */}
                             <div
@@ -223,9 +224,11 @@ function ExerciseGroupBlock({
 function FloatingActionButton({
     config,
     selectedIds,
+    intensity = 1.0,
 }: {
     config: WorkoutConfig | null;
     selectedIds: Set<string>;
+    intensity?: number;
 }) {
     const router = useRouter();
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -247,7 +250,7 @@ function FloatingActionButton({
         console.log("Debug: selectedIds", Array.from(selectedIds));
         console.log("Debug: config.groups keys", Object.keys(config.groups));
 
-        const steps = buildSessionSteps(filteredConfig);
+        const steps = buildSessionSteps(filteredConfig, intensity);
         console.log("Debug: steps", steps);
 
         if (steps.length === 0) {
@@ -292,6 +295,7 @@ function FloatingActionButton({
 export default function BadmintonSessionPage() {
     const [config, setConfig] = useState<WorkoutConfig | null>(null);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [intensity, setIntensity] = useState(1.0);
     const { selectedListId, setSelectedListId } = useExerciseList();
 
     useEffect(() => {
@@ -344,8 +348,8 @@ export default function BadmintonSessionPage() {
         )
         : 0;
 
-    // Estimate session duration based on selected exercises
-    const estimatedSeconds = config ? estimateSessionDuration(config, selectedIds) : 0;
+    // Estimate session duration based on selected exercises and intensity
+    const estimatedSeconds = config ? estimateSessionDuration(config, selectedIds, intensity) : 0;
 
     return (
         <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-text-main-dark antialiased">
@@ -363,7 +367,7 @@ export default function BadmintonSessionPage() {
 
                     {/* Intensity + Summary card */}
                     <section className="rounded-2xl bg-white dark:bg-surface-dark p-6 shadow-md ring-1 ring-black/5 dark:ring-white/5">
-                        <IntensityControl />
+                        <IntensityControl value={intensity} onChange={setIntensity} />
                         <SessionSummary
                             restTime={config?.globalRestTime ?? 30}
                             totalExercises={totalSelected}
@@ -398,6 +402,7 @@ export default function BadmintonSessionPage() {
                                         onToggle={handleToggle}
                                         isCustom={group.id.startsWith("custom_")}
                                         icon={group.icon}
+                                        intensity={intensity}
                                     />
                                 ))}
                             </div>
@@ -405,7 +410,7 @@ export default function BadmintonSessionPage() {
                     </section>
                 </main>
 
-                <FloatingActionButton config={config} selectedIds={selectedIds} />
+                <FloatingActionButton config={config} selectedIds={selectedIds} intensity={intensity} />
             </div>
         </div>
     );

@@ -15,6 +15,7 @@ The system SHALL allow the user to select which exercises from the catalogue to 
 - **WHEN** the user taps "Lancer la séance"
 - **THEN** only the exercises that are currently selected are passed to the timer
 - **THEN** deselected exercises are not included in the session
+- **THEN** the encoded steps contain duration and reps scaled by the current intensity (rounded to integers)
 
 #### Scenario: Default selection (no saved state)
 - **WHEN** the user opens the home page for the first time (no localStorage data)

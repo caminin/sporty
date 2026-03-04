@@ -117,6 +117,16 @@ export function getIconLabel(name: string): string {
     return name;
 }
 
+// Mélange Fisher-Yates (in-place, retourne une copie)
+export function shuffleCategories<T>(categories: T[]): T[] {
+    const result = [...categories];
+    for (let i = result.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [result[i], result[j]] = [result[j], result[i]];
+    }
+    return result;
+}
+
 // Icône par défaut
 export const DEFAULT_ICON = 'dumbbell';
 

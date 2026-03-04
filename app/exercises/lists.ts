@@ -218,12 +218,55 @@ export async function deleteExerciseList(listId: string): Promise<void> {
   }
 }
 
+// Charger le seed par défaut depuis default-seed.json
+async function loadDefaultSeedConfig(): Promise<WorkoutConfig> {
+  try {
+    const seedPath = path.join(process.cwd(), 'app', 'exercises', 'default-seed.json');
+    const seedData = await fs.readFile(seedPath, 'utf-8');
+    const rawConfig = JSON.parse(seedData);
+    const { validateGroup } = await import('./workout-config');
+    const groups = rawConfig.groups as Record<string, unknown>;
+    if (groups && typeof groups === 'object') {
+      const validGroups: Record<string, import('./types').Group> = {};
+      for (const [groupName, group] of Object.entries(groups)) {
+        if (validateGroup(group, groupName)) {
+          validGroups[groupName] = group as import('./types').Group;
+        }
+      }
+      return {
+        globalRestTime: typeof rawConfig.globalRestTime === 'number' ? rawConfig.globalRestTime : 15,
+        groups: validGroups,
+      };
+    }
+    throw new Error('Invalid groups');
+  } catch {
+    console.warn('Default seed (default-seed.json) absent ou invalide');
+    return {
+      globalRestTime: 15,
+      groups: {},
+    };
+  }
+}
+
+// Réinitialiser la liste par défaut avec le contenu du seed
+export async function resetDefaultList(): Promise<void> {
+  const list = await loadExerciseList('default');
+  if (!list) {
+    throw new Error('Liste par défaut introuvable');
+  }
+  const config = await loadDefaultSeedConfig();
+  list.config = config;
+  list.description = config.groups && Object.keys(config.groups).length > 0
+    ? 'Liste d\'exercices migrée automatiquement'
+    : 'Liste d\'exercices vide - à configurer';
+  await saveExerciseList(list);
+}
+
 // Créer une liste par défaut si aucune liste n'existe
 export async function ensureDefaultList(): Promise<void> {
   await ensureListsDir();
 
   try {
-    // Vérifier si la liste par défaut existe déjà
     const existingLists = await listExerciseLists();
     const defaultList = existingLists.find(list => list.id === 'default');
 
@@ -232,37 +275,8 @@ export async function ensureDefaultList(): Promise<void> {
       return;
     }
 
-    // Charger le seed par défaut (format Group unifié)
-    let config: WorkoutConfig;
-    try {
-      const seedPath = path.join(process.cwd(), 'app', 'exercises', 'default-seed.json');
-      const seedData = await fs.readFile(seedPath, 'utf-8');
-      const rawConfig = JSON.parse(seedData);
-      const { validateGroup } = await import('./workout-config');
-      const groups = rawConfig.groups as Record<string, unknown>;
-      if (groups && typeof groups === 'object') {
-        const validGroups: Record<string, import('./types').Group> = {};
-        for (const [groupName, group] of Object.entries(groups)) {
-          if (validateGroup(group, groupName)) {
-            validGroups[groupName] = group as import('./types').Group;
-          }
-        }
-        config = {
-          globalRestTime: typeof rawConfig.globalRestTime === 'number' ? rawConfig.globalRestTime : 15,
-          groups: validGroups,
-        };
-      } else {
-        throw new Error('Invalid groups');
-      }
-    } catch {
-      console.warn('Default seed (default-seed.json) absent ou invalide, création de liste par défaut vide');
-      config = {
-        globalRestTime: 15,
-        groups: {},
-      };
-    }
+    const config = await loadDefaultSeedConfig();
 
-    // Créer la liste par défaut
     const defaultListData: ExerciseList = {
       id: 'default',
       name: 'Liste par défaut',
@@ -271,7 +285,7 @@ export async function ensureDefaultList(): Promise<void> {
         : 'Liste d\'exercices vide - à configurer',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      config: config,
+      config,
     };
 
     await saveExerciseList(defaultListData);

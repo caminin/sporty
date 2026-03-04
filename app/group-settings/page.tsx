@@ -17,6 +17,7 @@ import {
     saveList,
     verifyAdmin,
     importListFromJson,
+    resetListToDefault,
 } from '../exercises/lists-actions';
 import type { ExerciseList, ExerciseListMetadata } from '../exercises/lists';
 import { useExerciseList } from '../contexts/ExerciseListContext';
@@ -230,6 +231,17 @@ export default function GroupSettingsPage() {
         e.target.value = '';
     };
 
+    const handleResetDefaultList = async () => {
+        if (!confirm('Réinitialiser la liste par défaut avec le contenu d\'origine ? Les modifications seront perdues.')) return;
+
+        const result = await resetListToDefault(adminPassword);
+        if (result.success) {
+            await loadWorkoutConfig();
+        } else {
+            alert(result.error ?? 'Erreur lors de la réinitialisation');
+        }
+    };
+
     const handleDeleteList = async (listId: string) => {
         if (!confirm('Êtes-vous sûr de vouloir supprimer cette liste ?')) return;
 
@@ -409,9 +421,21 @@ export default function GroupSettingsPage() {
             {activeTab === 'groups' && (
                 <div className="space-y-8">
                     {/* Liste active */}
-                    <div className="mb-6 flex items-center gap-2 text-sm text-neutral-400">
-                        <List className="w-4 h-4" />
-                        <span>Liste : {currentList?.name ?? 'Liste par défaut'}</span>
+                    <div className="mb-6 flex items-center justify-between gap-2 text-sm text-neutral-400">
+                        <div className="flex items-center gap-2">
+                            <List className="w-4 h-4" />
+                            <span>Liste : {currentList?.name ?? 'Liste par défaut'}</span>
+                        </div>
+                        {selectedListId === 'default' && isAdminAuthenticated && (
+                            <button
+                                onClick={handleResetDefaultList}
+                                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white text-sm transition-colors border border-neutral-700"
+                                title="Réinitialiser avec le contenu d'origine"
+                            >
+                                <RotateCcw className="w-4 h-4" />
+                                Réinitialiser
+                            </button>
+                        )}
                     </div>
 
                     {/* Global Rest Time */}

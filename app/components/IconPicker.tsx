@@ -1,7 +1,19 @@
 'use client';
 
-import React, { useState } from 'react';
-import { ICON_CATEGORIES, IconItem, getIconByName } from '../exercises/icons';
+import React, { useState, useMemo, useEffect } from 'react';
+import { ICON_CATEGORIES, getIconByName, shuffleCategories } from '../exercises/icons';
+
+const STORAGE_KEY = 'sporty-icon-picker-random-order';
+
+function getStoredRandomOrder(): boolean {
+    if (typeof window === 'undefined') return true;
+    try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        return stored === null ? true : stored === 'true';
+    } catch {
+        return true;
+    }
+}
 
 interface IconPickerProps {
     value: string;
@@ -12,12 +24,30 @@ interface IconPickerProps {
 export default function IconPicker({ value, onChange, className = '' }: IconPickerProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [randomOrder, setRandomOrder] = useState(true);
+    useEffect(() => {
+        setRandomOrder(getStoredRandomOrder());
+    }, []);
+
+    const orderedCategories = useMemo(() => {
+        if (!randomOrder) return ICON_CATEGORIES;
+        return shuffleCategories(ICON_CATEGORIES);
+    }, [randomOrder, isOpen]);
+
+    const handleRandomOrderChange = (checked: boolean) => {
+        setRandomOrder(checked);
+        try {
+            localStorage.setItem(STORAGE_KEY, String(checked));
+        } catch {
+            // ignore
+        }
+    };
 
     // Obtenir l'icône actuellement sélectionnée
     const selectedIcon = getIconByName(value);
 
     // Filtrer les icônes selon le terme de recherche
-    const filteredCategories = ICON_CATEGORIES.map(category => ({
+    const filteredCategories = orderedCategories.map(category => ({
         ...category,
         icons: category.icons.filter(icon =>
             icon.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -86,6 +116,15 @@ export default function IconPicker({ value, onChange, className = '' }: IconPick
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 className="w-full bg-neutral-800 border-none rounded-lg p-3 text-white placeholder-neutral-400 focus:ring-2 focus:ring-[#13ec5b] text-sm"
                             />
+                            <label className="flex items-center gap-2 mt-3 text-sm text-neutral-300 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={randomOrder}
+                                    onChange={(e) => handleRandomOrderChange(e.target.checked)}
+                                    className="rounded border-neutral-600 bg-neutral-800 text-[#13ec5b] focus:ring-[#13ec5b]"
+                                />
+                                Ordre aléatoire des catégories
+                            </label>
                         </div>
 
                         {/* Grille d'icônes */}

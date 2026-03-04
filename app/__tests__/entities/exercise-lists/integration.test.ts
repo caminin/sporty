@@ -89,12 +89,14 @@ describe('Exercise Lists - Integration Tests', () => {
   });
 
   describe('Create List and Add Exercises Workflow', () => {
+    const adminPassword = process.env.ADMIN_PASSWORD ?? 'sporty';
+
     it('should create a new list, select it, and add exercises to groups', async () => {
       const listName = 'Test Integration List';
       const listDescription = 'Liste créée pour tester l\'intégration complète';
 
       // 1. Créer une nouvelle liste
-      const createResult = await createList(listName, listDescription, 'sporty');
+      const createResult = await createList(listName, listDescription, adminPassword);
       expect(createResult.success).toBe(true);
       expect(createResult.list).toBeDefined();
       const newListId = createResult.list!.id;
@@ -139,7 +141,7 @@ describe('Exercise Lists - Integration Tests', () => {
       expect(updatedConfig2.groups['Legs'].exercises).toHaveLength(1);
 
       // 9. Nettoyer : supprimer la liste de test
-      const deleteResult = await removeList(newListId, 'sporty');
+      const deleteResult = await removeList(newListId, adminPassword);
       expect(deleteResult.success).toBe(true);
 
       // 10. Vérifier que la liste a été supprimée
