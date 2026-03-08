@@ -224,8 +224,15 @@ export function optimizeExerciseSequence(
     const groupLastUsed: Record<string, number> = {};
 
     // Start with one exercise from each group to establish the baseline
-    const groups = new Set(exercises.map(ex => ex.group));
-    const groupsArray = Array.from(groups);
+    // Order groups by exercise count (descending) so larger groups are used first in the round,
+    // avoiding consecutive same-group when adding remaining exercises later
+    const groupCounts: Record<string, number> = {};
+    for (const ex of exercises) {
+        groupCounts[ex.group] = (groupCounts[ex.group] ?? 0) + 1;
+    }
+    const groupsArray = Array.from(new Set(exercises.map(ex => ex.group))).sort(
+        (a, b) => (groupCounts[b] ?? 0) - (groupCounts[a] ?? 0)
+    );
 
     for (const group of groupsArray) {
         const exerciseIndex = remainingExercises.findIndex(ex => ex.group === group);
@@ -238,34 +245,31 @@ export function optimizeExerciseSequence(
 
     // For remaining exercises, always pick from the group that was used least recently
     while (remainingExercises.length > 0) {
-        // Calculate distance for each group (how many exercises ago it was last used)
-        const groupDistances: Record<string, number> = {};
-        for (const group of groupsArray) {
-            if (groupLastUsed[group] !== undefined) {
-                groupDistances[group] = result.length - groupLastUsed[group];
-            } else {
-                groupDistances[group] = Infinity; // Group never used, highest priority
-            }
-        }
-
-        // Find the group with maximum distance (least recently used)
+        // Calculate distance for each group that still has remaining exercises
         let maxDistance = -1;
         let selectedGroup = "";
-        for (const [group, distance] of Object.entries(groupDistances)) {
+        for (const group of groupsArray) {
+            const hasRemaining = remainingExercises.some(ex => ex.group === group);
+            if (!hasRemaining) continue;
+
+            const distance =
+                groupLastUsed[group] !== undefined
+                    ? result.length - groupLastUsed[group]
+                    : Infinity;
             if (distance > maxDistance) {
                 maxDistance = distance;
                 selectedGroup = group;
             }
         }
 
-        // Find and add the next exercise from that group
+        // Find and add the next exercise from that group (selectedGroup has remaining by construction)
         const exerciseIndex = remainingExercises.findIndex(ex => ex.group === selectedGroup);
         if (exerciseIndex !== -1) {
             const exercise = remainingExercises.splice(exerciseIndex, 1)[0];
             result.push(exercise);
             groupLastUsed[selectedGroup] = result.length - 1;
         } else {
-            // Fallback: if no exercise from selected group, take first remaining
+            // Fallback: no group with remaining found (should not happen), take first remaining
             const exercise = remainingExercises.shift()!;
             result.push(exercise);
             groupLastUsed[exercise.group] = result.length - 1;

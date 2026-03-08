@@ -50,6 +50,26 @@ describe('optimizeExerciseSequence', () => {
         expect(result).toHaveLength(3);
         expect(result.map(ex => ex.name)).toEqual(expect.arrayContaining(['Ex1', 'Ex2', 'Ex3']));
     });
+
+    it('should never have two consecutive exercises from the same group (4 tasks in 3 groups)', () => {
+        // 4 exercices répartis en 3 groupes : A(2), B(1), C(1)
+        // Alternance parfaite possible : A, B, C, A
+        const exercises = [
+            { name: 'Ex1', group: 'A', type: 'reps' as const, value: 10 },
+            { name: 'Ex2', group: 'B', type: 'reps' as const, value: 12 },
+            { name: 'Ex3', group: 'C', type: 'reps' as const, value: 8 },
+            { name: 'Ex4', group: 'C', type: 'reps' as const, value: 15 },
+        ];
+        const result = optimizeExerciseSequence(exercises);
+
+        expect(result).toHaveLength(4);
+        expect(result.map(ex => ex.name)).toEqual(expect.arrayContaining(['Ex1', 'Ex2', 'Ex3', 'Ex4']));
+
+        // Aucun groupe ne doit apparaître deux fois consécutivement
+        for (let i = 1; i < result.length; i++) {
+            expect(result[i].group).not.toBe(result[i - 1].group);
+        }
+    });
 });
 
 describe('buildSessionSteps with optimized sequencing', () => {
