@@ -17,7 +17,7 @@ const STORAGE_KEY = "sporty_session_selection";
 const GROUP_STYLES: Record<string, { icon: string; colorClass: string; borderClass: string }> = {
     "Cardio endurance": { icon: "favorite", colorClass: "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400", borderClass: "" },
     "Explosivité jambes": { icon: "bolt", colorClass: "bg-primary/10 text-primary", borderClass: "border-l-4 border-primary" },
-    "Adbos": { icon: "fitness_center", colorClass: "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400", borderClass: "" },
+    "Renforcement tronc": { icon: "fitness_center", colorClass: "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400", borderClass: "" },
     "Épaules et frappe": { icon: "sports_tennis", colorClass: "bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400", borderClass: "" },
     "Agilité et déplacements": { icon: "directions_run", colorClass: "bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400", borderClass: "" },
 };

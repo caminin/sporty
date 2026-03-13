@@ -23,9 +23,9 @@
         { "id": "ef-2", "name": "Pompes explosifs", "type": "reps", "value": 10 }
       ]
     },
-    "Adbos": {
+    "Renforcement tronc": {
       "id": "grp-abdos",
-      "name": "Adbos",
+      "name": "Renforcement tronc",
       "icon": "zap",
       "createdAt": "2025-03-03T00:00:00.000Z",
       "exercises": [

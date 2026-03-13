@@ -208,7 +208,7 @@ describe('Exercise Lists - Initialization & Migration', () => {
       expect(list!.config.globalRestTime).toBe(20);
       expect(Object.keys(list!.config.groups).length).toBeGreaterThan(0);
       expect(list!.config.groups).toHaveProperty('Cardio endurance');
-      expect(list!.config.groups).toHaveProperty('Adbos');
+      expect(list!.config.groups).toHaveProperty('Renforcement tronc');
       expect(list!.config.groups['Cardio endurance'].exercises).toHaveLength(4);
       expect(list!.config.groups['Cardio endurance'].icon).toBe('activity');
     });

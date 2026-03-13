@@ -59,6 +59,7 @@ function TimerInner() {
     }, [steps]);
 
     const [timeLeft, setTimeLeft] = useState<number>(initialTimeLeft);
+    const [stepSyncKey, setStepSyncKey] = useState(0); // Forces re-render when step transition wouldn't otherwise
     const [preparationCountdown, setPreparationCountdown] = useState<number>(5);
     const [isAudioEnabled, setIsAudioEnabled] = useState(true);
 
@@ -196,9 +197,18 @@ function TimerInner() {
         if (sessionState !== "running") return;
 
         // Skip creating interval when we just transitioned steps - timeLeft may be stale.
-        // Wait one render for the init effect to set timeLeft to the new step's duration.
+        // setTimeLeft alone may not trigger re-render if value unchanged (e.g. replay).
+        // stepSyncKey forces re-render so effect runs again and creates the interval.
         if (currentStepIndex !== lastStepIndexRef.current) {
             lastStepIndexRef.current = currentStepIndex;
+            const duration =
+                (currentStep.kind === "work" && currentStep.type === "time")
+                    ? currentStep.duration
+                    : currentStep.kind === "rest"
+                      ? currentStep.duration
+                      : timeLeft;
+            setTimeLeft(duration);
+            setStepSyncKey(k => k + 1);
             return;
         }
 
@@ -219,7 +229,7 @@ function TimerInner() {
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [timeLeft, sessionState, currentStep, currentStepIndex]);
+    }, [timeLeft, sessionState, currentStep, currentStepIndex, stepSyncKey]);
 
     // ── Preparation countdown timer ──────────────────────────────────────
     useEffect(() => {
