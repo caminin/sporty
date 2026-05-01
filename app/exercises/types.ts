@@ -1,4 +1,5 @@
 export type ExerciseType = "time" | "reps";
+export type GroupColorKey = "red" | "blue" | "purple" | "yellow" | "emerald" | "primary" | "orange" | "cyan";
 
 export interface Exercise {
     id: string;
@@ -17,6 +18,7 @@ export interface Group {
     id: string;
     name: string;
     icon: string; // nom de l'icône Lucide
+    color: GroupColorKey;
     createdAt: string;
     exercises: Exercise[];
 }

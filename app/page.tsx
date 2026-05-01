@@ -10,18 +10,11 @@ import { buildSessionSteps, encodeSession, estimateSessionDuration, formatDurati
 import { useExerciseList } from "./contexts/ExerciseListContext";
 import { ExerciseListSelector } from "./components/ExerciseListSelector";
 import { renderIconByName } from "./exercises/icons";
+import { GROUP_COLOR_STYLES, isGroupColorKey } from "./exercises/group-colors";
 
 const STORAGE_KEY = "sporty_session_selection";
 
-/** Visual config per group */
-const GROUP_STYLES: Record<string, { icon: string; colorClass: string; borderClass: string }> = {
-    "Cardio endurance": { icon: "favorite", colorClass: "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400", borderClass: "" },
-    "Explosivité jambes": { icon: "bolt", colorClass: "bg-primary/10 text-primary", borderClass: "border-l-4 border-primary" },
-    "Renforcement tronc": { icon: "fitness_center", colorClass: "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400", borderClass: "" },
-    "Épaules et frappe": { icon: "sports_tennis", colorClass: "bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400", borderClass: "" },
-    "Agilité et déplacements": { icon: "directions_run", colorClass: "bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400", borderClass: "" },
-};
-const DEFAULT_STYLE = { icon: "accessibility_new", colorClass: "bg-slate-100 text-slate-600", borderClass: "" };
+const DEFAULT_STYLE = { colorClass: "bg-slate-100 text-slate-600", borderClass: "" };
 
 /* ─── localStorage helpers ───────────────────────────────────────────────── */
 
@@ -138,6 +131,7 @@ function ExerciseGroupBlock({
     onToggle,
     isCustom = false,
     icon,
+    color,
     intensity = 1.0,
 }: {
     groupName: string;
@@ -146,9 +140,10 @@ function ExerciseGroupBlock({
     onToggle: (id: string) => void;
     isCustom?: boolean;
     icon?: string;
+    color?: string;
     intensity?: number;
 }) {
-    const style = GROUP_STYLES[groupName] || DEFAULT_STYLE;
+    const style = color && isGroupColorKey(color) ? GROUP_COLOR_STYLES[color] : DEFAULT_STYLE;
     const selectedCount = exercises.filter((ex) => selectedIds.has(ex.id)).length;
 
     return (
@@ -161,7 +156,7 @@ function ExerciseGroupBlock({
                             className: isCustom ? "w-5 h-5 text-[#13ec5b]" : "w-5 h-5"
                         }) || <Dumbbell className="w-5 h-5" />
                     ) : (
-                        <span className="material-symbols-outlined text-base">{style.icon}</span>
+                        <Dumbbell className="w-5 h-5" />
                     )}
                 </div>
                 <h3 className="font-bold text-slate-900 dark:text-white">{groupName}</h3>
@@ -306,23 +301,19 @@ export default function BadmintonSessionPage() {
     }, [selectedListId]);
 
     const loadWorkoutConfig = async () => {
+        if (!selectedListId) {
+            setConfig(null);
+            setSelectedIds(new Set());
+            return;
+        }
+
         try {
             const cfg = await getWorkoutConfig(selectedListId);
             setConfig(cfg);
             setSelectedIds(loadSelection(cfg));
         } catch (error) {
             console.error('Failed to load workout config:', error);
-            // En cas d'erreur, essayer avec la liste par défaut
-            if (selectedListId !== 'default') {
-                try {
-                    const defaultCfg = await getWorkoutConfig('default');
-                    setConfig(defaultCfg);
-                    setSelectedIds(loadSelection(defaultCfg));
-                    setSelectedListId('default'); // Revenir à la liste par défaut
-                } catch (defaultError) {
-                    console.error('Failed to load default workout config:', defaultError);
-                }
-            }
+            setConfig(null);
         }
     };
 
@@ -377,6 +368,14 @@ export default function BadmintonSessionPage() {
 
                     {/* Exercise groups */}
                     <section>
+                        {!selectedListId && (
+                            <div className="flex flex-col items-center gap-3 rounded-2xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 px-4 py-6 text-center text-sm text-amber-700 dark:text-amber-200">
+                                <span className="material-symbols-outlined text-2xl">info</span>
+                                <p className="font-semibold">Aucune liste d'exercices sélectionnée</p>
+                                <p className="text-xs text-amber-600 dark:text-amber-300/90">Choisissez une liste dans le sélecteur ci-dessus pour afficher votre programme.</p>
+                            </div>
+                        )}
+
                         <div className="mb-4 flex items-center justify-between">
                             <h2 className="text-lg font-bold">Séquence du jour</h2>
                             <span className="text-sm font-medium text-slate-500 dark:text-text-muted-dark">
@@ -402,6 +401,7 @@ export default function BadmintonSessionPage() {
                                         onToggle={handleToggle}
                                         isCustom={group.id.startsWith("custom_")}
                                         icon={group.icon}
+                                        color={group.color}
                                         intensity={intensity}
                                     />
                                 ))}

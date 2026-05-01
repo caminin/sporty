@@ -81,6 +81,7 @@ describe('buildSessionSteps with optimized sequencing', () => {
                     id: 'group-a',
                     name: 'Group A',
                     icon: 'Dumbbell',
+                    color: 'emerald',
                     createdAt: new Date().toISOString(),
                     exercises: [{ id: '1', name: 'Ex1', type: 'reps' as const, value: 10 }]
                 },
@@ -88,6 +89,7 @@ describe('buildSessionSteps with optimized sequencing', () => {
                     id: 'group-b',
                     name: 'Group B',
                     icon: 'Activity',
+                    color: 'blue',
                     createdAt: new Date().toISOString(),
                     exercises: [{ id: '2', name: 'Ex2', type: 'reps' as const, value: 10 }]
                 },
@@ -105,6 +107,7 @@ describe('buildSessionSteps with optimized sequencing', () => {
                     id: 'chest-group',
                     name: 'Chest',
                     icon: 'Dumbbell',
+                    color: 'purple',
                     createdAt: new Date().toISOString(),
                     exercises: [
                         { id: '1', name: 'Push-ups', type: 'reps' as const, value: 10 },
@@ -115,6 +118,7 @@ describe('buildSessionSteps with optimized sequencing', () => {
                     id: 'back-group',
                     name: 'Back',
                     icon: 'Activity',
+                    color: 'cyan',
                     createdAt: new Date().toISOString(),
                     exercises: [
                         { id: '2', name: 'Pull-ups', type: 'reps' as const, value: 8 },
@@ -139,6 +143,7 @@ describe('buildSessionSteps with optimized sequencing', () => {
                     id: 'chest-group',
                     name: 'Chest',
                     icon: 'Dumbbell',
+                    color: 'purple',
                     createdAt: new Date().toISOString(),
                     exercises: [
                         { id: '1', name: 'Push-ups', type: 'reps' as const, value: 10 },
@@ -149,6 +154,7 @@ describe('buildSessionSteps with optimized sequencing', () => {
                     id: 'back-group',
                     name: 'Back',
                     icon: 'Activity',
+                    color: 'cyan',
                     createdAt: new Date().toISOString(),
                     exercises: [
                         { id: '2', name: 'Pull-ups', type: 'reps' as const, value: 8 },

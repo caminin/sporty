@@ -1,16 +1,24 @@
 "use server";
 
-import type { Exercise, WorkoutConfig, Group } from "./types";
+import type { Exercise, WorkoutConfig, Group, GroupColorKey } from "./types";
 import { loadExerciseList, saveExerciseList, initializeExerciseLists } from "./lists";
 import { migrateWorkoutConfig } from "./workout-config";
 
+function requireActiveListId(listId: string | undefined): string {
+  if (!listId || listId.trim().length === 0) {
+    throw new Error('Aucune liste sélectionnée. Sélectionnez une liste avant d’effectuer cette action.');
+  }
+  return listId;
+}
+
 // Fonction pour charger une liste d'exercices
-export async function getWorkoutConfig(listId: string = 'default'): Promise<WorkoutConfig> {
+export async function getWorkoutConfig(listId: string): Promise<WorkoutConfig> {
+    const activeListId = requireActiveListId(listId);
     // Initialiser le système de listes si nécessaire
     await initializeExerciseLists();
 
     // Charger la liste spécifiée
-    const list = await loadExerciseList(listId);
+    const list = await loadExerciseList(activeListId);
     if (list) {
         // Apply migration if needed
         const migratedConfig = migrateWorkoutConfig(list.config);
@@ -25,30 +33,25 @@ export async function getWorkoutConfig(listId: string = 'default'): Promise<Work
     }
 
     // Lever une erreur explicite si la liste n'existe pas
-    throw new Error(`Liste d'exercices '${listId}' introuvable. Vérifiez que le système de listes est correctement initialisé ou sélectionnez une liste différente.`);
+    throw new Error(`Liste d'exercices '${activeListId}' introuvable. Vérifiez qu'elle existe ou sélectionnez une autre liste.`);
 }
 
 // Fonction helper pour sauvegarder une liste
-async function saveWorkoutConfigForList(config: WorkoutConfig, listId: string = 'default'): Promise<void> {
-    const list = await loadExerciseList(listId);
+async function saveWorkoutConfigForList(config: WorkoutConfig, listId: string): Promise<void> {
+    const activeListId = requireActiveListId(listId);
+    const list = await loadExerciseList(activeListId);
     if (list) {
         list.config = config;
         await saveExerciseList(list);
     } else {
-        // Créer une nouvelle liste si elle n'existe pas
-        const { createExerciseList } = await import('./lists');
-        const newList = await createExerciseList('Liste par défaut', 'Liste créée automatiquement');
-        // Forcer l'ID à 'default' pour la compatibilité
-        newList.id = 'default';
-        newList.config = config;
-        await saveExerciseList(newList);
+        throw new Error('La liste cible est introuvable. Sélectionnez une liste existante.');
     }
 }
 
 export async function addExercise(
     groupName: string,
     exercise: Omit<Exercise, "id">,
-    listId: string = 'default'
+    listId: string
 ): Promise<WorkoutConfig> {
     const config = await getWorkoutConfig(listId);
     const group = config.groups[groupName];
@@ -65,7 +68,7 @@ export async function addExercise(
 export async function deleteExercise(
     groupName: string,
     exerciseId: string,
-    listId: string = 'default'
+    listId: string
 ): Promise<WorkoutConfig> {
     const config = await getWorkoutConfig(listId);
     const group = config.groups[groupName];
@@ -78,7 +81,7 @@ export async function deleteExercise(
 
 export async function updateGlobalRestTime(
     restTime: number,
-    listId: string = 'default'
+    listId: string
 ): Promise<WorkoutConfig> {
     const config = await getWorkoutConfig(listId);
     config.globalRestTime = restTime;
@@ -91,7 +94,8 @@ export async function updateGlobalRestTime(
 export async function createGroup(
     name: string,
     icon: string,
-    listId: string = 'default'
+    color: GroupColorKey,
+    listId: string
 ): Promise<WorkoutConfig> {
     const config = await getWorkoutConfig(listId);
 
@@ -108,6 +112,7 @@ export async function createGroup(
         id,
         name,
         icon,
+        color,
         createdAt: new Date().toISOString(),
         exercises: []
     };
@@ -119,8 +124,8 @@ export async function createGroup(
 
 export async function updateGroup(
     groupName: string,
-    updates: Partial<Pick<Group, 'name' | 'icon'>>,
-    listId: string = 'default'
+    updates: Partial<Pick<Group, 'name' | 'icon' | 'color'>>,
+    listId: string
 ): Promise<WorkoutConfig> {
     const config = await getWorkoutConfig(listId);
 
@@ -140,7 +145,8 @@ export async function updateGroup(
         const updatedGroup = {
             ...group,
             name: updates.name,
-            ...(updates.icon !== undefined && { icon: updates.icon })
+            ...(updates.icon !== undefined && { icon: updates.icon }),
+            ...(updates.color !== undefined && { color: updates.color }),
         };
         config.groups[updates.name] = updatedGroup;
 
@@ -154,6 +160,9 @@ export async function updateGroup(
         if (updates.icon !== undefined) {
             group.icon = updates.icon;
         }
+        if (updates.color !== undefined) {
+            group.color = updates.color;
+        }
     }
 
     await saveWorkoutConfigForList(config, listId);
@@ -162,7 +171,7 @@ export async function updateGroup(
 
 export async function deleteGroup(
     groupName: string,
-    listId: string = 'default'
+    listId: string
 ): Promise<WorkoutConfig> {
     const config = await getWorkoutConfig(listId);
 
@@ -180,7 +189,7 @@ export async function deleteGroup(
 export async function addExerciseToGroup(
     groupName: string,
     exercise: Omit<Exercise, "id">,
-    listId: string = 'default'
+    listId: string
 ): Promise<WorkoutConfig> {
     const config = await getWorkoutConfig(listId);
 
@@ -200,7 +209,7 @@ export async function addExerciseToGroup(
 export async function deleteExerciseFromGroup(
     groupName: string,
     exerciseId: string,
-    listId: string = 'default'
+    listId: string
 ): Promise<WorkoutConfig> {
     const config = await getWorkoutConfig(listId);
 

@@ -1,6 +1,16 @@
 'use server';
 
-import { listExerciseLists, loadExerciseList, saveExerciseList, createExerciseList, deleteExerciseList, initializeExerciseLists, resetDefaultList } from './lists';
+import {
+  listExerciseLists,
+  loadExerciseList,
+  saveExerciseList,
+  createExerciseList,
+  deleteExerciseList,
+  initializeExerciseLists,
+  seedExerciseList,
+  listManualListFiles,
+  loadManualListConfig,
+} from './lists';
 import { WorkoutConfig } from './types';
 import { migrateWorkoutConfig, validateGroup } from './workout-config';
 
@@ -18,6 +28,20 @@ export async function initializeLists() {
   } catch (error) {
     console.error('Failed to initialize lists:', error);
     return { success: false, error: 'Failed to initialize lists' };
+  }
+}
+
+export async function getManualListFiles(password: string) {
+  if (!verifyAdminAuth(password)) {
+    return { success: false, error: 'Invalid admin password' };
+  }
+
+  try {
+    const files = await listManualListFiles();
+    return { success: true, files };
+  } catch (error) {
+    console.error('Failed to list manual list files:', error);
+    return { success: false, error: 'Impossible de lister les fichiers d\'import manuel' };
   }
 }
 
@@ -85,18 +109,18 @@ export async function createList(name: string, description: string | undefined, 
   }
 }
 
-// Réinitialiser la liste par défaut avec le contenu du seed (nécessite authentification admin)
-export async function resetListToDefault(password: string) {
+// Réinitialiser une liste cible avec le contenu seed explicite (nécessite authentification admin)
+export async function seedListWithDefaultTemplate(listId: string, password: string) {
   if (!verifyAdminAuth(password)) {
     return { success: false, error: 'Invalid admin password' };
   }
 
   try {
-    await resetDefaultList();
+    await seedExerciseList(listId);
     return { success: true };
   } catch (error) {
-    console.error('Failed to reset default list:', error);
-    return { success: false, error: 'Impossible de réinitialiser la liste par défaut' };
+    console.error('Failed to seed list:', error);
+    return { success: false, error: 'Impossible de réinitialiser la liste' };
   }
 }
 
@@ -106,17 +130,40 @@ export async function removeList(listId: string, password: string) {
     return { success: false, error: 'Invalid admin password' };
   }
 
-  // Ne pas permettre la suppression de la liste par défaut
-  if (listId === 'default') {
-    return { success: false, error: 'Cannot delete default list' };
-  }
-
   try {
     await deleteExerciseList(listId);
     return { success: true };
   } catch (error) {
     console.error('Failed to delete exercise list:', error);
     return { success: false, error: 'Failed to delete list' };
+  }
+}
+
+// Importer un fichier ciblé depuis manual-lists (sans scan automatique)
+export async function importListFromManualFolder(fileName: string, listName: string, password: string): Promise<{ success: boolean; listId?: string; error?: string }> {
+  if (!verifyAdminAuth(password)) {
+    return { success: false, error: 'Invalid admin password' };
+  }
+
+  if (!listName.trim()) {
+    return { success: false, error: 'Le nom de la liste est requis' };
+  }
+  if (!fileName.trim()) {
+    return { success: false, error: 'Le fichier à importer est requis' };
+  }
+
+  try {
+    const config = await loadManualListConfig(fileName.trim());
+    const list = await createExerciseList(listName.trim());
+    list.config = config;
+    await saveExerciseList(list);
+    return { success: true, listId: list.id };
+  } catch (error) {
+    console.error('Failed to import list from manual folder:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Impossible d\'importer la liste depuis le dossier manuel'
+    };
   }
 }
 

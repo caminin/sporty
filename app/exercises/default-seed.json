@@ -5,6 +5,7 @@
       "id": "grp-cardio",
       "name": "Cardio endurance",
       "icon": "activity",
+      "color": "red",
       "createdAt": "2025-03-03T00:00:00.000Z",
       "exercises": [
         { "id": "ce-1", "name": "Burpees", "type": "reps", "value": 15 },
@@ -17,6 +18,7 @@
       "id": "grp-epaules",
       "name": "Épaules et frappe",
       "icon": "target",
+      "color": "purple",
       "createdAt": "2025-03-03T00:00:00.000Z",
       "exercises": [
         { "id": "ef-1", "name": "Pompes", "type": "reps", "value": 15 },
@@ -27,6 +29,7 @@
       "id": "grp-abdos",
       "name": "Renforcement tronc",
       "icon": "zap",
+      "color": "blue",
       "createdAt": "2025-03-03T00:00:00.000Z",
       "exercises": [
         { "id": "ab-1", "name": "Gainage face", "type": "time", "value": 60 },
@@ -38,6 +41,7 @@
       "id": "grp-explo",
       "name": "Explosivité jambes",
       "icon": "zap",
+      "color": "primary",
       "createdAt": "2025-03-03T00:00:00.000Z",
       "exercises": [
         { "id": "ej-1", "name": "Squat jumps", "type": "reps", "value": 15 },

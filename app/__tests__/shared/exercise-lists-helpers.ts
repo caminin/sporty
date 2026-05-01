@@ -8,6 +8,7 @@ function toUnifiedGroup(name: string, exercises: { id: string; name: string; typ
     id: `custom_${name.toLowerCase().replace(/\s/g, '_')}_${Date.now()}`,
     name,
     icon: 'Activity',
+    color: 'blue',
     createdAt: new Date().toISOString(),
     exercises
   };
@@ -87,7 +88,7 @@ export function createEmptyTestConfig(): WorkoutConfig {
  * Accepte groups au format ancien (tableaux) ou nouveau (objets Group).
  */
 export function createCustomTestConfig(
-  groups: Record<string, { id: string; name: string; icon?: string; createdAt?: string; exercises: { id: string; name: string; type: 'reps' | 'time'; value: number }[] } | { id: string; name: string; type: 'reps' | 'time'; value: number }[]>,
+  groups: Record<string, { id: string; name: string; icon?: string; color?: 'red' | 'blue' | 'purple' | 'yellow' | 'emerald' | 'primary' | 'orange' | 'cyan'; createdAt?: string; exercises: { id: string; name: string; type: 'reps' | 'time'; value: number }[] } | { id: string; name: string; type: 'reps' | 'time'; value: number }[]>,
   globalRestTime: number = 30
 ): WorkoutConfig {
   const unifiedGroups: WorkoutConfig['groups'] = {};
@@ -99,6 +100,7 @@ export function createCustomTestConfig(
         id: val.id || `custom_${name}_${Date.now()}`,
         name: val.name || name,
         icon: val.icon || 'Activity',
+        color: val.color || 'blue',
         createdAt: val.createdAt || new Date().toISOString(),
         exercises: val.exercises
       };

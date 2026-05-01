@@ -1,25 +1,4 @@
-# default-list-seed Specification
-
-## Purpose
-
-Source de vérité pour le contenu initial de la liste par défaut, au format Group unifié. Permet d'initialiser une liste par défaut avec des groupes et exercices prédéfinis sans logique de migration de l'ancien format.
-## Requirements
-### Requirement: Fichier seed au format Group
-
-Le système MUST fournir un fichier seed contenant une WorkoutConfig valide au format Group unifié.
-
-#### Scenario: Structure du seed
-
-- **WHEN** le fichier seed est chargé
-- **THEN** il contient `globalRestTime` (number) et `groups` (Record<string, Group>)
-- **THEN** chaque groupe a `id`, `name`, `icon`, `createdAt`, `exercises`
-- **THEN** chaque exercice a `id`, `name`, `type`, `value`
-
-#### Scenario: Validation de la structure
-
-- **WHEN** le fichier seed est chargé
-- **THEN** tous les groupes sont validés par `validateGroup`
-- **THEN** les groupes invalides sont ignorés ou une erreur est levée selon la politique de chargement
+## MODIFIED Requirements
 
 ### Requirement: Chargement du seed par action explicite
 The system MUST charge le seed **seulement** lorsqu’une action utilisateur/admin explicite le demande (pas lors de l’initialisation du stockage).

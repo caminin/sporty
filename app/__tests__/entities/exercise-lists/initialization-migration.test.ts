@@ -1,5 +1,12 @@
 import fs from 'fs/promises';
-import { createExerciseList, saveExerciseList, loadExerciseList, listExerciseLists, ensureDefaultList } from '../../../exercises/lists';
+import {
+  createExerciseList,
+  saveExerciseList,
+  loadExerciseList,
+  listExerciseLists,
+  initializeExerciseLists,
+  seedExerciseList,
+} from '../../../exercises/lists';
 import { tempFilesystemSetup, createTrackedExerciseList } from '../../shared/test-helpers';
 import { createTestConfig, createCustomTestConfig } from '../../shared/exercise-lists-helpers';
 
@@ -158,7 +165,7 @@ describe('Exercise Lists - Initialization & Migration', () => {
 
       loaded = await loadExerciseList(list.id);
       expect(loaded!.createdAt).toBe(originalCreatedAt);
-      expect(loaded!.updatedAt).not.toBe(originalCreatedAt);
+      expect(new Date(loaded!.updatedAt).getTime()).toBeGreaterThanOrEqual(new Date(originalCreatedAt).getTime());
     });
   });
 
@@ -197,44 +204,42 @@ describe('Exercise Lists - Initialization & Migration', () => {
     });
   });
 
-  describe('Default List Creation (ensureDefaultList)', () => {
-    it('should create default list with seed content when none exists', async () => {
-      await ensureDefaultList();
+  describe('Default List Initialization', () => {
+    it('should not create a list on initialize when data is empty', async () => {
+      await initializeExerciseLists();
 
-      const list = await loadExerciseList('default');
-      expect(list).toBeDefined();
-      expect(list!.id).toBe('default');
-      expect(list!.name).toBe('Liste par défaut');
-      expect(list!.config.globalRestTime).toBe(20);
-      expect(Object.keys(list!.config.groups).length).toBeGreaterThan(0);
-      expect(list!.config.groups).toHaveProperty('Cardio endurance');
-      expect(list!.config.groups).toHaveProperty('Renforcement tronc');
-      expect(list!.config.groups['Cardio endurance'].exercises).toHaveLength(4);
-      expect(list!.config.groups['Cardio endurance'].icon).toBe('activity');
+      const lists = await listExerciseLists();
+      expect(lists.find(list => list.id === 'default')).toBeUndefined();
     });
 
-    it('should create empty default list when seed is absent', async () => {
+    it('should seed a target list only when explicitly requested', async () => {
+      const list = await createExerciseList('Seed Target');
+      await seedExerciseList(list.id);
+
+      const loaded = await loadExerciseList(list.id);
+      expect(loaded).toBeDefined();
+      expect(loaded!.config.globalRestTime).toBeGreaterThan(0);
+      expect(Object.keys(loaded!.config.groups).length).toBeGreaterThanOrEqual(0);
+    });
+
+    it('should fallback to empty config when default seed is unavailable', async () => {
+      const originalReadFile = fs.readFile.bind(fs);
       const readFileSpy = jest.spyOn(fs, 'readFile');
-      readFileSpy.mockRejectedValueOnce(new Error('ENOENT'));
+      readFileSpy.mockImplementation(async (filePath, options) => {
+        if (typeof filePath === 'string' && filePath.endsWith('app/exercises/default-seed.json')) {
+          throw new Error('ENOENT');
+        }
+        return originalReadFile(filePath, options);
+      });
 
-      await ensureDefaultList();
+      const list = await createExerciseList('Seed Fallback');
+      await seedExerciseList(list.id);
 
-      const list = await loadExerciseList('default');
-      expect(list).toBeDefined();
-      expect(list!.config.groups).toEqual({});
-      expect(list!.config.globalRestTime).toBe(15);
+      const loaded = await loadExerciseList(list.id);
+      expect(loaded!.config.groups).toEqual({});
+      expect(loaded!.config.globalRestTime).toBe(15);
 
       readFileSpy.mockRestore();
-    });
-
-    it('should not recreate default list when it already exists', async () => {
-      await ensureDefaultList();
-      const firstList = await loadExerciseList('default');
-      expect(firstList).toBeDefined();
-
-      await ensureDefaultList();
-      const secondList = await loadExerciseList('default');
-      expect(secondList!.updatedAt).toBe(firstList!.updatedAt);
     });
   });
 

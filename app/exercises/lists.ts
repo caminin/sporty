@@ -1,6 +1,12 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { WorkoutConfig } from './types';
+import { migrateWorkoutConfig, validateGroup } from './workout-config';
+import { isGroupColorKey } from './group-colors';
+
+const DEFAULT_DATA_DIR = '/tmp/sporty-data';
+const EXERCISE_LISTS_DIR_NAME = 'exercise-lists';
+const MANUAL_LISTS_DIR_NAME = 'manual-lists';
 
 // Valider l'intégrité d'une liste d'exercices
 function validateExerciseList(list: any): list is ExerciseList {
@@ -49,6 +55,7 @@ function validateExerciseList(list: any): list is ExerciseList {
     if (!g.id || typeof g.id !== 'string') return false;
     if (!g.name || typeof g.name !== 'string') return false;
     if (!g.icon || typeof g.icon !== 'string') return false;
+    if (!isGroupColorKey(g.color)) return false;
     if (!g.createdAt || typeof g.createdAt !== 'string') return false;
     if (!Array.isArray(g.exercises)) return false;
 
@@ -79,8 +86,14 @@ export interface ExerciseList extends ExerciseListMetadata {
 
 // Configuration du stockage (lu à l'exécution pour permettre DATA_DIR en tests)
 function getListsDir(): string {
-  const dataDir = process.env.DATA_DIR || '/tmp/sporty-data';
-  return path.join(dataDir, 'exercise-lists');
+  const dataDir = process.env.DATA_DIR || DEFAULT_DATA_DIR;
+  return path.join(dataDir, EXERCISE_LISTS_DIR_NAME);
+}
+
+// Dossier dédié aux imports manuels (non scanné automatiquement)
+export function getManualListsDir(): string {
+  const dataDir = process.env.DATA_DIR || DEFAULT_DATA_DIR;
+  return path.join(dataDir, MANUAL_LISTS_DIR_NAME);
 }
 
 // S'assurer que le répertoire existe
@@ -90,6 +103,15 @@ async function ensureListsDir(): Promise<void> {
     await fs.access(listsDir);
   } catch {
     await fs.mkdir(listsDir, { recursive: true });
+  }
+}
+
+async function ensureManualListsDir(): Promise<void> {
+  const manualListsDir = getManualListsDir();
+  try {
+    await fs.access(manualListsDir);
+  } catch {
+    await fs.mkdir(manualListsDir, { recursive: true });
   }
 }
 
@@ -137,6 +159,65 @@ export async function listExerciseLists(): Promise<ExerciseListMetadata[]> {
     console.error('Failed to list exercise lists:', error);
     return [];
   }
+}
+
+// Liste les fichiers JSON disponibles dans le dossier d'import manuel (sans effet secondaire)
+export async function listManualListFiles(): Promise<string[]> {
+  await ensureManualListsDir();
+  try {
+    const files = await fs.readdir(getManualListsDir());
+    return files
+      .filter((file) => file.toLowerCase().endsWith('.json'))
+      .filter((file) => !file.startsWith('.'));
+  } catch {
+    return [];
+  }
+}
+
+function getSafeManualFilePath(fileName: string): string {
+  if (!fileName || typeof fileName !== 'string') {
+    throw new Error('Nom de fichier invalide');
+  }
+
+  const normalized = path.basename(fileName);
+  if (normalized !== fileName || normalized.includes('..')) {
+    throw new Error('Nom de fichier invalide');
+  }
+
+  return path.join(getManualListsDir(), normalized);
+}
+
+function validateImportedConfig(config: WorkoutConfig): string | null {
+  if (typeof config.globalRestTime !== 'number' || config.globalRestTime < 0) {
+    return 'globalRestTime invalide (doit être un nombre >= 0)';
+  }
+  if (!config.groups || typeof config.groups !== 'object') {
+    return 'Structure des groupes incorrecte';
+  }
+  for (const [groupName, group] of Object.entries(config.groups)) {
+    if (!validateGroup(group, groupName)) {
+      return `Groupe '${groupName}' invalide : structure incorrecte`;
+    }
+  }
+  return null;
+}
+
+export async function loadManualListConfig(fileName: string): Promise<WorkoutConfig> {
+  const filePath = getSafeManualFilePath(fileName);
+  const data = await fs.readFile(filePath, 'utf-8');
+  const parsed = JSON.parse(data);
+
+  const rawConfig = parsed && typeof parsed === 'object' && 'config' in parsed
+    ? (parsed as { config: unknown }).config
+    : parsed;
+
+  const migratedConfig = migrateWorkoutConfig(rawConfig);
+  const validationError = validateImportedConfig(migratedConfig);
+  if (validationError) {
+    throw new Error(validationError);
+  }
+
+  return migratedConfig;
 }
 
 // Charger une liste spécifique
@@ -224,7 +305,6 @@ async function loadDefaultSeedConfig(): Promise<WorkoutConfig> {
     const seedPath = path.join(process.cwd(), 'app', 'exercises', 'default-seed.json');
     const seedData = await fs.readFile(seedPath, 'utf-8');
     const rawConfig = JSON.parse(seedData);
-    const { validateGroup } = await import('./workout-config');
     const groups = rawConfig.groups as Record<string, unknown>;
     if (groups && typeof groups === 'object') {
       const validGroups: Record<string, import('./types').Group> = {};
@@ -248,11 +328,11 @@ async function loadDefaultSeedConfig(): Promise<WorkoutConfig> {
   }
 }
 
-// Réinitialiser la liste par défaut avec le contenu du seed
-export async function resetDefaultList(): Promise<void> {
-  const list = await loadExerciseList('default');
+// Réinitialiser une liste cible avec le contenu du seed explicite
+export async function seedExerciseList(listId: string): Promise<void> {
+  const list = await loadExerciseList(listId);
   if (!list) {
-    throw new Error('Liste par défaut introuvable');
+    throw new Error('Liste introuvable');
   }
   const config = await loadDefaultSeedConfig();
   list.config = config;
@@ -262,43 +342,9 @@ export async function resetDefaultList(): Promise<void> {
   await saveExerciseList(list);
 }
 
-// Créer une liste par défaut si aucune liste n'existe
-export async function ensureDefaultList(): Promise<void> {
-  await ensureListsDir();
-
-  try {
-    const existingLists = await listExerciseLists();
-    const defaultList = existingLists.find(list => list.id === 'default');
-
-    if (defaultList) {
-      console.log('Default list already exists');
-      return;
-    }
-
-    const config = await loadDefaultSeedConfig();
-
-    const defaultListData: ExerciseList = {
-      id: 'default',
-      name: 'Liste par défaut',
-      description: config.groups && Object.keys(config.groups).length > 0
-        ? 'Liste d\'exercices migrée automatiquement'
-        : 'Liste d\'exercices vide - à configurer',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      config,
-    };
-
-    await saveExerciseList(defaultListData);
-    console.log('Default list created successfully');
-  } catch (error) {
-    console.error('Failed to create default list:', error);
-    throw new Error('Échec de l\'initialisation de la liste d\'exercices par défaut. Vérifiez les permissions d\'écriture et l\'espace disque disponible.');
-  }
-}
-
-// Initialiser le système de listes
+// Initialisation du système de listes (sans création implicite de liste par défaut)
 export async function initializeExerciseLists(): Promise<void> {
-  console.log('Initializing exercise lists system...');
-  await ensureDefaultList();
+  await ensureListsDir();
+  await ensureManualListsDir();
   console.log('Exercise lists system initialized');
 }

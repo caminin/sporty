@@ -1,7 +1,9 @@
-import { createExerciseList, saveExerciseList, loadExerciseList, deleteExerciseList, listExerciseLists } from '../../../exercises/lists';
-import { createList, removeList, getExerciseList } from '../../../exercises/lists-actions';
+import { saveExerciseList, loadExerciseList, deleteExerciseList, listExerciseLists } from '../../../exercises/lists';
+import { createList, removeList, getExerciseList, importListFromManualFolder } from '../../../exercises/lists-actions';
 import { getWorkoutConfig, createGroup, addExerciseToGroup } from '../../../exercises/actions';
 import { tempFilesystemSetup, createTrackedExerciseList } from '../../shared/test-helpers';
+import fs from 'fs/promises';
+import path from 'path';
 
 // Setup et cleanup Jest pour chaque test
 beforeEach(tempFilesystemSetup.beforeEach);
@@ -23,6 +25,7 @@ describe('Exercise Lists - Integration Tests', () => {
             id: 'custom_test_1',
             name: 'Test Group',
             icon: 'Activity',
+            color: 'blue',
             createdAt: new Date().toISOString(),
             exercises: [{ id: 'crud1', name: 'CRUD Exercise', type: 'reps', value: 20 }]
           }
@@ -54,6 +57,7 @@ describe('Exercise Lists - Integration Tests', () => {
               id: `custom_grp_${i}`,
               name: `Group ${i}`,
               icon: 'Activity',
+              color: 'blue',
               createdAt: new Date().toISOString(),
               exercises: [
                 { id: `ex${i}1`, name: `Exercise ${i}.1`, type: 'reps', value: i * 5 },
@@ -114,7 +118,7 @@ describe('Exercise Lists - Integration Tests', () => {
 
       // 4. Créer un groupe et y ajouter un exercice
       const newExercise = { name: 'Test Squat', type: 'reps' as const, value: 15 };
-      let updatedConfig = await createGroup('Legs', 'Dumbbell', newListId);
+      let updatedConfig = await createGroup('Legs', 'Dumbbell', 'emerald', newListId);
       updatedConfig = await addExerciseToGroup('Legs', newExercise, newListId);
 
       // 5. Vérifier que l'exercice a été ajouté
@@ -126,7 +130,7 @@ describe('Exercise Lists - Integration Tests', () => {
 
       // 6. Créer un autre groupe et y ajouter un exercice
       const cardioExercise = { name: 'Test Running', type: 'time' as const, value: 300 };
-      updatedConfig = await createGroup('Cardio', 'Heart', newListId);
+      updatedConfig = await createGroup('Cardio', 'Heart', 'red', newListId);
       const updatedConfig2 = await addExerciseToGroup('Cardio', cardioExercise, newListId);
 
       // 7. Vérifier que le nouveau groupe a été créé et que l'exercice y est
@@ -153,6 +157,75 @@ describe('Exercise Lists - Integration Tests', () => {
   describe('Test Execution Validation', () => {
     it('should run all tests without failures', async () => {
       expect(true).toBe(true);
+    });
+  });
+
+  describe('Explicit listId validation', () => {
+    it('should fail getWorkoutConfig when listId is missing', async () => {
+      await expect(getWorkoutConfig('')).rejects.toThrow('Aucune liste sélectionnée');
+    });
+
+    it('should fail mutation when listId is missing', async () => {
+      const testList = await createTrackedExerciseList('Mutation Validation');
+      await saveExerciseList({
+        ...testList,
+        config: {
+          ...testList.config,
+          groups: {
+            'Test': {
+              id: 'test',
+              name: 'Test',
+              icon: 'Dumbbell',
+              color: 'blue',
+              createdAt: new Date().toISOString(),
+              exercises: [{ id: 'e1', name: 'Push-up', type: 'reps', value: 10 }],
+            },
+          },
+        },
+      });
+
+      await expect(createGroup('Test', 'Dumbbell', 'blue', '')).rejects.toThrow('Aucune liste sélectionnée');
+      await expect(addExerciseToGroup('Test', { name: 'Jump', type: 'reps', value: 10 }, '')).rejects.toThrow('Aucune liste sélectionnée');
+
+      await removeList(testList.id, process.env.ADMIN_PASSWORD ?? 'sporty');
+    });
+  });
+
+  describe('Manual folder import', () => {
+    it('should import only a selected file from manual-lists folder', async () => {
+      const adminPassword = process.env.ADMIN_PASSWORD ?? 'sporty';
+      const dataDir = process.env.DATA_DIR ?? '/tmp/sporty-data';
+      const manualDir = path.join(dataDir, 'manual-lists');
+      const fileName = 'manual-target.json';
+      const filePath = path.join(manualDir, fileName);
+
+      await fs.mkdir(manualDir, { recursive: true });
+      await fs.writeFile(
+        filePath,
+        JSON.stringify({
+          config: {
+            globalRestTime: 25,
+            groups: {
+              Manual: [
+                { id: 'm1', name: 'Manual Exo', type: 'reps', value: 12 },
+              ],
+            },
+          },
+        }),
+        'utf-8'
+      );
+
+      const result = await importListFromManualFolder(fileName, 'Liste manuelle ciblée', adminPassword);
+      expect(result.success).toBe(true);
+      expect(result.listId).toBeDefined();
+
+      const loaded = result.listId ? await getExerciseList(result.listId) : { success: false };
+      expect(loaded.success).toBe(true);
+      if (loaded.success) {
+        expect(loaded.list!.config.globalRestTime).toBe(25);
+      }
+
+      await fs.unlink(filePath);
     });
   });
 });

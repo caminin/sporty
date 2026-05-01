@@ -49,19 +49,27 @@ Le système de test SHALL spécifiquement vérifier l'ajout d'exercices dans des
 - **THEN** chaque liste SHALL maintenir ses propres exercices indépendamment des autres
 
 ### Requirement: Test de l'Initialisation Automatique
-Le système de test SHALL vérifier l'initialisation automatique du système de listes.
+Le système de test SHALL vérifier l'initialisation du système de listes sans automatisme de liste par défaut.
 
-#### Scenario: Création automatique de la liste par défaut
-- **WHEN** le système est initialisé sans listes existantes
-- **THEN** le système SHALL créer automatiquement une liste par défaut avec la configuration appropriée
+#### Scenario: Initialisation sur stockage vide
+- **WHEN** le système est initialisé sans aucune liste existante
+- **THEN** aucune liste par défaut n'est créée
+- **AND** le système doit rester en état prêt (répertoire présent + API de listes opérationnelle)
 
-#### Scenario: Chargement du seed par défaut
-- **WHEN** le fichier default-seed.json existe et aucune liste par défaut n'est présente
-- **THEN** le système SHALL charger le contenu du seed et créer la liste par défaut avec ce contenu
+#### Scenario: Initialisation avec listes existantes
+- **WHEN** des listes existent déjà sur le disque
+- **THEN** le système SHALL les conserver telles quelles
+- **THEN** le système SHALL ne pas en créer de nouvelles
 
-#### Scenario: Fallback sans seed
-- **WHEN** le fichier default-seed.json est absent et aucune liste par défaut n'est présente
-- **THEN** le système SHALL créer une liste par défaut vide (groups: {})
+#### Scenario: Initialisation sans lecture automatique du seed
+- **WHEN** l'initialisation s'exécute
+- **THEN** le contenu de `default-seed.json` ne doit pas être chargé automatiquement
+- **THEN** aucune conversion implicite vers une liste par défaut n'est attendue
+
+#### Scenario: Gestion d'erreur de seed lors d'un import explicite
+- **WHEN** un administrateur déclenche un import par seed explicite
+- **AND** `default-seed.json` est absent
+- **THEN** le fallback `globalRestTime: 15` et `groups: {}` est utilisé pour la liste cible
 
 ### Requirement: Test de la Gestion d'Erreurs
 Le système de test SHALL vérifier la gestion appropriée des erreurs du système de fichiers.

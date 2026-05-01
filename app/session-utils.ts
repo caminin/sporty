@@ -117,6 +117,7 @@ export function testBuildSessionSteps() {
                 id: "test-group-1",
                 name: "Test Group 1",
                 icon: "Dumbbell",
+                color: "emerald",
                 createdAt: new Date().toISOString(),
                 exercises: [
                     { id: "test-1", name: "Test Exercise 1", type: "reps", value: 10 }
@@ -126,6 +127,7 @@ export function testBuildSessionSteps() {
                 id: "test-group-2",
                 name: "Test Group 2",
                 icon: "Activity",
+                color: "blue",
                 createdAt: new Date().toISOString(),
                 exercises: [
                     { id: "test-2", name: "Test Exercise 2", type: "time", value: 45 }

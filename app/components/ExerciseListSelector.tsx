@@ -51,13 +51,10 @@ export function ExerciseListSelector({ selectedListId, onListChange }: ExerciseL
       if (result.success && result.lists) {
         setLists(result.lists);
 
-        // Si aucune liste n'est sélectionnée ou que la liste sélectionnée n'existe pas,
-        // sélectionner la première liste disponible ou 'default'
-        if (!selectedListId || !result.lists.find(list => list.id === selectedListId)) {
-          const defaultList = result.lists.find(list => list.id === 'default') || result.lists[0];
-          if (defaultList) {
-            onListChange(defaultList.id);
-          }
+  // Si aucune liste n'est sélectionnée ou que la liste sélectionnée n'existe pas,
+  // ne rien changer pour forcer une sélection utilisateur explicite
+  if (!selectedListId || !result.lists.find(list => list.id === selectedListId)) {
+    return;
         }
       } else {
         setError(result.error || 'Erreur lors du chargement des listes');
@@ -74,7 +71,6 @@ export function ExerciseListSelector({ selectedListId, onListChange }: ExerciseL
 
   const getListIcon = (listId: string): string => {
     // Essayer de deviner l'icône basée sur le nom ou utiliser l'icône par défaut
-    if (listId === 'default') return LIST_ICONS.default;
     if (listId.toLowerCase().includes('cardio')) return LIST_ICONS.cardio;
     if (listId.toLowerCase().includes('force') || listId.toLowerCase().includes('strength')) return LIST_ICONS.strength;
     if (listId.toLowerCase().includes('flexibilité') || listId.toLowerCase().includes('souplesse')) return LIST_ICONS.flexibility;
@@ -141,8 +137,8 @@ export function ExerciseListSelector({ selectedListId, onListChange }: ExerciseL
         >
           <div className="flex items-center gap-3 flex-1 min-w-0">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary flex-shrink-0">
-              <span className="material-symbols-outlined text-sm">
-                {selectedList ? getListIcon(selectedList.id) : LIST_ICONS.default}
+          <span className="material-symbols-outlined text-sm">
+                {selectedList ? getListIcon(selectedList.name) : LIST_ICONS.general}
               </span>
             </div>
             <div className="text-left min-w-0 flex-1">

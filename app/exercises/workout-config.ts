@@ -1,4 +1,5 @@
 import type { Exercise, WorkoutConfig, CustomGroup, Group } from "./types";
+import { isGroupColorKey } from "./group-colors";
 
 /**
  * Validates a Group object structure
@@ -10,6 +11,7 @@ export function validateGroup(group: unknown, groupName: string): boolean {
         typeof (group as Group).id === "string" &&
         typeof (group as Group).name === "string" &&
         typeof (group as Group).icon === "string" &&
+        isGroupColorKey((group as Group).color) &&
         typeof (group as Group).createdAt === "string" &&
         Array.isArray((group as Group).exercises) &&
         (group as Group).exercises.every(

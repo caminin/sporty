@@ -16,7 +16,7 @@ interface ExerciseListProviderProps {
 }
 
 export function ExerciseListProvider({ children }: ExerciseListProviderProps) {
-  const [selectedListId, setSelectedListId] = useState<string>('default');
+  const [selectedListId, setSelectedListId] = useState<string>('');
 
   // Initialiser le système de listes et charger la liste sélectionnée depuis le localStorage au montage
   useEffect(() => {
@@ -34,10 +34,10 @@ export function ExerciseListProvider({ children }: ExerciseListProviderProps) {
         if (result.success) {
           setSelectedListId(savedListId);
         } else {
-          // Si la liste n'existe pas, revenir à la liste par défaut
-          console.warn(`Liste d'exercices '${savedListId}' introuvable, retour à la liste par défaut`);
+          // Si la liste n'existe pas, revenir à aucun choix explicite
+          console.warn(`Liste d'exercices '${savedListId}' introuvable, réinitialisation de la sélection`);
           localStorage.removeItem('selectedExerciseListId'); // Nettoyer le localStorage
-          setSelectedListId('default');
+          setSelectedListId('');
         }
       }
     };
@@ -48,7 +48,11 @@ export function ExerciseListProvider({ children }: ExerciseListProviderProps) {
   // Sauvegarder la liste sélectionnée dans le localStorage
   const handleSetSelectedListId = (listId: string) => {
     setSelectedListId(listId);
-    localStorage.setItem('selectedExerciseListId', listId);
+    if (listId) {
+      localStorage.setItem('selectedExerciseListId', listId);
+    } else {
+      localStorage.removeItem('selectedExerciseListId');
+    }
   };
 
   const value: ExerciseListContextType = {

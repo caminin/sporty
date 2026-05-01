@@ -8,6 +8,7 @@ describe('Migration Functionality', () => {
         id: 'test-group',
         name: 'Test Group',
         icon: 'dumbbell',
+        color: 'blue',
         createdAt: new Date().toISOString(),
         exercises: [
           {
@@ -32,6 +33,7 @@ describe('Migration Functionality', () => {
           id: 'test',
           name: 'test',
           icon: 'test',
+          color: 'blue',
           createdAt: 'test',
           exercises: [{ id: 'ex1', name: 'ex', type: 'invalid', value: 10 }] // invalid exercise type
         }
@@ -77,6 +79,7 @@ describe('Migration Functionality', () => {
             id: 'custom1',
             name: 'Mon Groupe',
             icon: 'star',
+            color: 'purple',
             createdAt: '2023-01-01T00:00:00.000Z',
             exercises: [
               { id: 'cg1', name: 'Custom Exercise', type: 'reps' as const, value: 10 }
@@ -105,6 +108,7 @@ describe('Migration Functionality', () => {
             id: 'predefined-cardio-endurance',
             name: "Cardio endurance",
             icon: "Heart",
+            color: "red",
             createdAt: "2023-01-01T00:00:00.000Z",
             exercises: [
               { id: 'ce1', name: 'Burpees', type: 'time' as const, value: 45 }
@@ -135,6 +139,7 @@ describe('Migration Functionality', () => {
             id: "predefined-cardio",
             name: "Cardio",
             icon: "Heart",
+            color: "red",
             createdAt: "2023-01-01T00:00:00.000Z",
             exercises: [{ id: "ex1", name: "Burpees", type: "time" as const, value: 45 }]
           },
@@ -142,6 +147,7 @@ describe('Migration Functionality', () => {
             id: "custom_123",
             name: "Mon Groupe",
             icon: "Star",
+            color: "purple",
             createdAt: "2023-01-02T00:00:00.000Z",
             exercises: [{ id: "ex2", name: "Squats", type: "reps" as const, value: 10 }]
           }

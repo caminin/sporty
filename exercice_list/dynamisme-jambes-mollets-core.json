@@ -1,0 +1,98 @@
+{
+  "globalRestTime": 20,
+  "groups": {
+    "Dynamisme": {
+      "id": "grp-dynamisme",
+      "name": "Dynamisme",
+      "icon": "activity",
+      "color": "orange",
+      "createdAt": "2026-05-02T00:00:00.000Z",
+      "exercises": [
+        {
+          "id": "ex-dynamisme-01",
+          "name": "Mountain climbers",
+          "type": "time",
+          "value": 40
+        },
+        {
+          "id": "ex-dynamisme-02",
+          "name": "Fast feet / toe taps sur place",
+          "type": "time",
+          "value": 25
+        },
+        {
+          "id": "ex-dynamisme-03",
+          "name": "Split step rapide sur place",
+          "type": "time",
+          "value": 25
+        },
+        {
+          "id": "ex-dynamisme-04",
+          "name": "Burpees",
+          "type": "reps",
+          "value": 8
+        }
+      ]
+    },
+    "Jambes & mollets": {
+      "id": "grp-jambes-mollets",
+      "name": "Jambes & mollets",
+      "icon": "footprints",
+      "color": "emerald",
+      "createdAt": "2026-05-02T00:00:00.000Z",
+      "exercises": [
+        {
+          "id": "ex-jambes-mollets-01",
+          "name": "Squats jumps",
+          "type": "reps",
+          "value": 20
+        },
+        {
+          "id": "ex-jambes-mollets-02",
+          "name": "Fentes arrière",
+          "type": "reps",
+          "value": 10
+        },
+        {
+          "id": "ex-jambes-mollets-03",
+          "name": "Calf raises lentes",
+          "type": "reps",
+          "value": 25
+        },
+        {
+          "id": "ex-jambes-mollets-04",
+          "name": "Calf raises une jambe",
+          "type": "reps",
+          "value": 12
+        },
+        {
+          "id": "ex-jambes-mollets-05",
+          "name": "Pogos / petits sauts sur l’avant-pied",
+          "type": "time",
+          "value": 20
+        }
+      ]
+    },
+    "Core": {
+      "id": "grp-core",
+      "name": "Core",
+      "icon": "target",
+      "color": "cyan",
+      "createdAt": "2026-05-02T00:00:00.000Z",
+      "exercises": [
+        {
+          "id": "ex-core-01",
+          "name": "Gainage face",
+          "type": "time",
+          "value": 45
+        },
+        {
+          "id": "ex-core-02",
+          "name": "Russian twists",
+          "type": "reps",
+          "value": 24
+        }
+      ]
+    }
+  }
+}
