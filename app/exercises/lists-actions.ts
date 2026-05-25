@@ -7,12 +7,18 @@ import {
   createExerciseList,
   deleteExerciseList,
   initializeExerciseLists,
-  seedExerciseList,
   listManualListFiles,
   loadManualListConfig,
 } from './lists';
 import { WorkoutConfig } from './types';
-import { migrateWorkoutConfig, validateGroup } from './workout-config';
+import {
+  parseWorkoutConfig,
+  parseCatalogJson,
+  parseGroupsJson,
+  applyCatalogImport,
+  mergeImportedGroups,
+} from './workout-config';
+import { validateImportedConfig } from './lists';
 
 // Vérifier l'authentification admin (mot de passe depuis ADMIN_PASSWORD, fallback 'sporty' en dev)
 function verifyAdminAuth(password: string): boolean {
@@ -109,21 +115,6 @@ export async function createList(name: string, description: string | undefined, 
   }
 }
 
-// Réinitialiser une liste cible avec le contenu seed explicite (nécessite authentification admin)
-export async function seedListWithDefaultTemplate(listId: string, password: string) {
-  if (!verifyAdminAuth(password)) {
-    return { success: false, error: 'Invalid admin password' };
-  }
-
-  try {
-    await seedExerciseList(listId);
-    return { success: true };
-  } catch (error) {
-    console.error('Failed to seed list:', error);
-    return { success: false, error: 'Impossible de réinitialiser la liste' };
-  }
-}
-
 // Supprimer une liste (nécessite authentification admin)
 export async function removeList(listId: string, password: string) {
   if (!verifyAdminAuth(password)) {
@@ -173,21 +164,130 @@ export async function verifyAdmin(password: string) {
   return { success: isValid };
 }
 
-function validateImportedConfig(config: WorkoutConfig): string | null {
-  if (typeof config.globalRestTime !== 'number' || config.globalRestTime < 0) {
-    return 'globalRestTime invalide (doit être un nombre >= 0)';
+export async function importCatalogFromJson(
+  json: string,
+  password: string,
+  options: { listName?: string; listId?: string; replaceAll?: boolean }
+): Promise<{ success: boolean; listId?: string; error?: string }> {
+  if (!verifyAdminAuth(password)) {
+    return { success: false, error: 'Mot de passe admin invalide' };
   }
-  if (!config.groups || typeof config.groups !== 'object') {
-    return 'Structure des groupes incorrecte';
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    return { success: false, error: 'JSON invalide' };
   }
-  for (const [groupName, group] of Object.entries(config.groups)) {
-    if (!validateGroup(group, groupName)) {
-      return `Groupe '${groupName}' invalide : structure incorrecte`;
+
+  const raw =
+    parsed && typeof parsed === 'object' && 'config' in parsed
+      ? (parsed as { config: unknown }).config
+      : parsed;
+
+  const parseResult = parseCatalogJson(raw);
+  if (parseResult.error || !parseResult.payload) {
+    return { success: false, error: parseResult.error ?? 'Catalogue invalide' };
+  }
+
+  const { listId, listName, replaceAll = false } = options;
+
+  try {
+    if (!listId) {
+      if (!listName?.trim()) {
+        return { success: false, error: 'Le nom de la liste est requis' };
+      }
+      const list = await createExerciseList(listName.trim());
+      list.config = {
+        globalRestTime: parseResult.payload.globalRestTime ?? 30,
+        exercises: parseResult.payload.exercises,
+        groups: {},
+      };
+      await saveExerciseList(list);
+      return { success: true, listId: list.id };
     }
+
+    const existingList = await loadExerciseList(listId);
+    if (!existingList) {
+      return { success: false, error: 'Liste introuvable' };
+    }
+
+    existingList.config = applyCatalogImport(
+      existingList.config,
+      parseResult.payload,
+      replaceAll
+    );
+    await saveExerciseList(existingList);
+    return { success: true, listId: existingList.id };
+  } catch (error) {
+    console.error('Failed to import catalog:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Impossible d\'importer le catalogue',
+    };
   }
-  return null;
 }
 
+export async function importGroupsFromJson(
+  json: string,
+  listId: string,
+  password: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!verifyAdminAuth(password)) {
+    return { success: false, error: 'Mot de passe admin invalide' };
+  }
+
+  if (!listId.trim()) {
+    return { success: false, error: 'Sélectionnez une liste active' };
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    return { success: false, error: 'JSON invalide' };
+  }
+
+  const raw =
+    parsed && typeof parsed === 'object' && 'config' in parsed
+      ? (parsed as { config: unknown }).config
+      : parsed;
+
+  const parseResult = parseGroupsJson(raw);
+  if (parseResult.error || !parseResult.payload) {
+    return { success: false, error: parseResult.error ?? 'Groupes invalides' };
+  }
+
+  try {
+    const existingList = await loadExerciseList(listId);
+    if (!existingList) {
+      return { success: false, error: 'Liste introuvable' };
+    }
+
+    if (Object.keys(existingList.config.exercises).length === 0) {
+      return {
+        success: false,
+        error: 'Importez d\'abord un catalogue d\'exercices dans l\'onglet Liste d\'exercices.',
+      };
+    }
+
+    existingList.config = mergeImportedGroups(
+      existingList.config,
+      parseResult.payload.groups,
+      parseResult.payload.globalRestTime
+    );
+    await saveExerciseList(existingList);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to import groups:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Impossible d\'importer les groupes',
+    };
+  }
+}
+
+/** Import complet — utilisé par import manuel dossier uniquement */
 export async function importListFromJson(
   json: string,
   listName: string,
@@ -213,7 +313,11 @@ export async function importListFromJson(
       ? (parsed as { config: unknown }).config
       : parsed;
 
-  const config = migrateWorkoutConfig(rawConfig);
+  const parseResult = parseWorkoutConfig(rawConfig);
+  if (parseResult.error || !parseResult.config) {
+    return { success: false, error: parseResult.error ?? 'Configuration invalide' };
+  }
+  const config = parseResult.config;
   const validationError = validateImportedConfig(config);
   if (validationError) {
     return { success: false, error: validationError };

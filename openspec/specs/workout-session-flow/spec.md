@@ -10,16 +10,16 @@ Le système DOIT permettre à l'utilisateur de lancer la séance en appuyant sur
 - **THEN** une indication visuelle (toast ou alert) indique à l'utilisateur qu'il n'y a aucun exercice à lancer
 
 ## Requirement: Construction de la séquence de session
-Le système DOIT construire une séquence de steps de type `[work, rest, work, rest, ..., work]` à partir des exercices de chaque groupe, en utilisant un algorithme optimisé qui maximise l'alternance entre groupes musculaires différents. Le dernier step de la séquence MUST être un step de type `work` (pas de repos final).
+Le système DOIT construire une séquence de steps `[work, rest, work, rest, ..., work]` à partir des placements sélectionnés, résolus via le catalogue (valeur effective), en utilisant l'algorithme d'alternance entre groupes. Le dernier step MUST être de type `work`.
 
 #### Scenario: Séquence correctement construite
-- **WHEN** la config contient N exercices au total (tous groupes confondus)
-- **THEN** la séquence générée contient N steps de type `work` et N-1 steps de type `rest`
+- **WHEN** la config contient N placements sélectionnés au total
+- **THEN** la séquence générée contient N steps `work` et N-1 steps `rest`
+- **THEN** chaque step `work` utilise la valeur effective (override ou défaut catalogue) pour durée ou répétitions
 
 #### Scenario: Alternance maximale des groupes musculaires
-- **WHEN** la config contient des exercices de plusieurs groupes musculaires
+- **WHEN** la config contient des placements de plusieurs groupes
 - **THEN** la séquence maximise l'alternance entre groupes différents
-- **THEN** aucun groupe n'est sollicité consécutivement plus que nécessaire
 
 ## Requirement: Fin de boucle — proposition de relancer
 Le système DOIT afficher un écran de fin lorsque tous les steps de la séquence ont été complétés. Cet écran DOIT présenter deux options : **Oui, refaire** (relancer la séquence depuis le début) et **Terminer** (retourner à la page d'accueil).

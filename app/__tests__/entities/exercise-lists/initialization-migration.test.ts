@@ -1,11 +1,9 @@
-import fs from 'fs/promises';
 import {
   createExerciseList,
   saveExerciseList,
   loadExerciseList,
   listExerciseLists,
   initializeExerciseLists,
-  seedExerciseList,
 } from '../../../exercises/lists';
 import { tempFilesystemSetup, createTrackedExerciseList } from '../../shared/test-helpers';
 import { createTestConfig, createCustomTestConfig } from '../../shared/exercise-lists-helpers';
@@ -29,6 +27,8 @@ describe('Exercise Lists - Initialization & Migration', () => {
 
       expect(list.config).toHaveProperty('globalRestTime', 5);
       expect(list.config).toHaveProperty('groups');
+      expect(list.config).toHaveProperty('exercises');
+      expect(list.config.exercises).toEqual({});
       expect(list.config.groups).toEqual({});
 
       expect(typeof list.createdAt).toBe('string');
@@ -93,9 +93,9 @@ describe('Exercise Lists - Initialization & Migration', () => {
 
       loaded = await loadExerciseList(list.id);
       expect(loaded!.config.globalRestTime).toBe(60);
-      expect(loaded!.config.groups['Initial'].exercises[0].value).toBe(15);
+      expect(loaded!.config.exercises['init1'].value).toBe(15);
       expect(loaded!.config.groups['New Group'].exercises).toHaveLength(1);
-      expect(loaded!.config.groups['New Group'].exercises[0].name).toBe('New Exercise');
+      expect(loaded!.config.exercises['new1'].name).toBe('New Exercise');
     });
   });
 
@@ -210,36 +210,6 @@ describe('Exercise Lists - Initialization & Migration', () => {
 
       const lists = await listExerciseLists();
       expect(lists.find(list => list.id === 'default')).toBeUndefined();
-    });
-
-    it('should seed a target list only when explicitly requested', async () => {
-      const list = await createExerciseList('Seed Target');
-      await seedExerciseList(list.id);
-
-      const loaded = await loadExerciseList(list.id);
-      expect(loaded).toBeDefined();
-      expect(loaded!.config.globalRestTime).toBeGreaterThan(0);
-      expect(Object.keys(loaded!.config.groups).length).toBeGreaterThanOrEqual(0);
-    });
-
-    it('should fallback to empty config when default seed is unavailable', async () => {
-      const originalReadFile = fs.readFile.bind(fs);
-      const readFileSpy = jest.spyOn(fs, 'readFile');
-      readFileSpy.mockImplementation(async (filePath, options) => {
-        if (typeof filePath === 'string' && filePath.endsWith('app/exercises/default-seed.json')) {
-          throw new Error('ENOENT');
-        }
-        return originalReadFile(filePath, options);
-      });
-
-      const list = await createExerciseList('Seed Fallback');
-      await seedExerciseList(list.id);
-
-      const loaded = await loadExerciseList(list.id);
-      expect(loaded!.config.groups).toEqual({});
-      expect(loaded!.config.globalRestTime).toBe(15);
-
-      readFileSpy.mockRestore();
     });
   });
 

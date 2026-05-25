@@ -1,6 +1,7 @@
 import { saveExerciseList, loadExerciseList, deleteExerciseList, listExerciseLists } from '../../../exercises/lists';
 import { createList, removeList, getExerciseList, importListFromManualFolder } from '../../../exercises/lists-actions';
-import { getWorkoutConfig, createGroup, addExerciseToGroup } from '../../../exercises/actions';
+import { getWorkoutConfig, createGroup, addExerciseToGroup, addCatalogExercise } from '../../../exercises/actions';
+import { createCustomTestConfig } from '../../shared/exercise-lists-helpers';
 import { tempFilesystemSetup, createTrackedExerciseList } from '../../shared/test-helpers';
 import fs from 'fs/promises';
 import path from 'path';
@@ -18,19 +19,9 @@ describe('Exercise Lists - Integration Tests', () => {
       let loadedList = await loadExerciseList(testList.id);
       expect(loadedList!.name).toBe('CRUD Test List');
 
-      testList.config = {
-        globalRestTime: 60,
-        groups: {
-          'Test Group': {
-            id: 'custom_test_1',
-            name: 'Test Group',
-            icon: 'Activity',
-            color: 'blue',
-            createdAt: new Date().toISOString(),
-            exercises: [{ id: 'crud1', name: 'CRUD Exercise', type: 'reps', value: 20 }]
-          }
-        }
-      };
+      testList.config = createCustomTestConfig({
+        'Test Group': [{ id: 'crud1', name: 'CRUD Exercise', type: 'reps', value: 20 }],
+      }, 60);
       await saveExerciseList(testList);
 
       loadedList = await loadExerciseList(testList.id);
@@ -50,22 +41,12 @@ describe('Exercise Lists - Integration Tests', () => {
 
       for (let i = 1; i <= 5; i++) {
         const list = await createTrackedExerciseList(`List ${i}`, `Description ${i}`);
-        list.config = {
-          globalRestTime: i * 10,
-          groups: {
-            [`Group ${i}`]: {
-              id: `custom_grp_${i}`,
-              name: `Group ${i}`,
-              icon: 'Activity',
-              color: 'blue',
-              createdAt: new Date().toISOString(),
-              exercises: [
-                { id: `ex${i}1`, name: `Exercise ${i}.1`, type: 'reps', value: i * 5 },
-                { id: `ex${i}2`, name: `Exercise ${i}.2`, type: 'time', value: i * 15 }
-              ]
-            }
-          }
-        };
+        list.config = createCustomTestConfig({
+          [`Group ${i}`]: [
+            { id: `ex${i}1`, name: `Exercise ${i}.1`, type: 'reps', value: i * 5 },
+            { id: `ex${i}2`, name: `Exercise ${i}.2`, type: 'time', value: i * 15 },
+          ],
+        }, i * 10);
         await saveExerciseList(list);
         lists.push(list);
       }
@@ -117,29 +98,25 @@ describe('Exercise Lists - Integration Tests', () => {
       expect(initialConfig.globalRestTime).toBe(5); // Valeur par défaut pour les nouvelles listes
 
       // 4. Créer un groupe et y ajouter un exercice
-      const newExercise = { name: 'Test Squat', type: 'reps' as const, value: 15 };
+      const squatId = 'test-squat';
       let updatedConfig = await createGroup('Legs', 'Dumbbell', 'emerald', newListId);
-      updatedConfig = await addExerciseToGroup('Legs', newExercise, newListId);
+      updatedConfig = await addCatalogExercise({ name: 'Test Squat', type: 'reps', value: 15 }, newListId, squatId);
+      updatedConfig = await addExerciseToGroup('Legs', squatId, newListId);
 
-      // 5. Vérifier que l'exercice a été ajouté
       expect(updatedConfig.groups['Legs']).toBeDefined();
-      const addedExercise = updatedConfig.groups['Legs'].exercises.find(ex => ex.name === 'Test Squat');
-      expect(addedExercise).toBeDefined();
-      expect(addedExercise!.type).toBe('reps');
-      expect(addedExercise!.value).toBe(15);
+      expect(updatedConfig.exercises[squatId].name).toBe('Test Squat');
+      expect(updatedConfig.groups['Legs'].exercises[0].exerciseId).toBe(squatId);
 
-      // 6. Créer un autre groupe et y ajouter un exercice
-      const cardioExercise = { name: 'Test Running', type: 'time' as const, value: 300 };
+      const runId = 'test-running';
       updatedConfig = await createGroup('Cardio', 'Heart', 'red', newListId);
-      const updatedConfig2 = await addExerciseToGroup('Cardio', cardioExercise, newListId);
+      updatedConfig = await addCatalogExercise({ name: 'Test Running', type: 'time', value: 300 }, newListId, runId);
+      const updatedConfig2 = await addExerciseToGroup('Cardio', runId, newListId);
 
-      // 7. Vérifier que le nouveau groupe a été créé et que l'exercice y est
       expect(updatedConfig2.groups['Cardio']).toBeDefined();
       expect(updatedConfig2.groups['Cardio'].exercises).toHaveLength(1);
-      const cardioAdded = updatedConfig2.groups['Cardio'].exercises[0];
-      expect(cardioAdded.name).toBe('Test Running');
-      expect(cardioAdded.type).toBe('time');
-      expect(cardioAdded.value).toBe(300);
+      expect(updatedConfig2.exercises[runId].name).toBe('Test Running');
+      expect(updatedConfig2.exercises[runId].type).toBe('time');
+      expect(updatedConfig2.exercises[runId].value).toBe(300);
 
       // 8. Vérifier que les autres groupes sont préservés
       expect(updatedConfig2.groups['Legs'].exercises).toHaveLength(1);
@@ -169,23 +146,13 @@ describe('Exercise Lists - Integration Tests', () => {
       const testList = await createTrackedExerciseList('Mutation Validation');
       await saveExerciseList({
         ...testList,
-        config: {
-          ...testList.config,
-          groups: {
-            'Test': {
-              id: 'test',
-              name: 'Test',
-              icon: 'Dumbbell',
-              color: 'blue',
-              createdAt: new Date().toISOString(),
-              exercises: [{ id: 'e1', name: 'Push-up', type: 'reps', value: 10 }],
-            },
-          },
-        },
+        config: createCustomTestConfig({
+          Test: [{ id: 'e1', name: 'Push-up', type: 'reps', value: 10 }],
+        }),
       });
 
       await expect(createGroup('Test', 'Dumbbell', 'blue', '')).rejects.toThrow('Aucune liste sélectionnée');
-      await expect(addExerciseToGroup('Test', { name: 'Jump', type: 'reps', value: 10 }, '')).rejects.toThrow('Aucune liste sélectionnée');
+      await expect(addExerciseToGroup('Test', 'e1', '')).rejects.toThrow('Aucune liste sélectionnée');
 
       await removeList(testList.id, process.env.ADMIN_PASSWORD ?? 'sporty');
     });
@@ -203,12 +170,18 @@ describe('Exercise Lists - Integration Tests', () => {
       await fs.writeFile(
         filePath,
         JSON.stringify({
-          config: {
-            globalRestTime: 25,
-            groups: {
-              Manual: [
-                { id: 'm1', name: 'Manual Exo', type: 'reps', value: 12 },
-              ],
+          globalRestTime: 25,
+          exercises: {
+            m1: { id: 'm1', name: 'Manual Exo', type: 'reps', value: 12 },
+          },
+          groups: {
+            Manual: {
+              id: 'grp-manual',
+              name: 'Manual',
+              icon: 'activity',
+              color: 'blue',
+              createdAt: '2025-01-01T00:00:00.000Z',
+              exercises: [{ refId: 'm1', exerciseId: 'm1' }],
             },
           },
         }),

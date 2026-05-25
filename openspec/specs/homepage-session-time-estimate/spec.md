@@ -1,25 +1,26 @@
-## Requirement: Session Time Estimate Display
-The system SHALL compute and display an estimated total duration for the workout session on the home page, based on the currently selected exercises and the current intensity multiplier.
+### Requirement: Session Time Estimate Display
+
+The system SHALL compute and display an estimated total duration for the workout session on the home page, based on the currently selected placements and their effective values (no intensity multiplier).
 
 The estimation formula is:
-- **5 seconds** of startup time per exercise
-- **3 seconds × (reps × intensity)** for reps-based exercises (reps scaled by intensity, rounded)
-- **(duration × intensity)** in seconds for time-based exercises (duration scaled by intensity, rounded)
-- **globalRestTime seconds** of rest between each exercise (not after the last)
+
+- **5 seconds** of startup time per selected placement
+- **3 seconds × reps** for reps-based placements (effective reps, rounded if applicable)
+- **duration in seconds** for time-based placements (effective duration)
+- **globalRestTime seconds** of rest between each placement (not after the last)
 
 #### Scenario: Display estimated duration for mixed exercises
-- **WHEN** the user has selected at least one exercise
+
+- **WHEN** the user has selected at least one placement
 - **THEN** the home page displays an estimated session duration computed using the formula above
 - **THEN** the duration is shown in a human-readable format: `Xm Ys` if ≥ 60 seconds, otherwise `Xs`
 
 #### Scenario: Estimate updates on selection change
-- **WHEN** the user toggles an exercise on or off
+
+- **WHEN** the user toggles a placement on or off
 - **THEN** the estimated duration updates immediately to reflect the new selection
 
-#### Scenario: Estimate updates when intensity changes
-- **WHEN** the user adjusts the intensity slider
-- **THEN** the estimated duration updates immediately to reflect the scaled values
-
 #### Scenario: No exercises selected
-- **WHEN** zero exercises are selected
+
+- **WHEN** zero placements are selected
 - **THEN** the estimated duration displays as `0s`

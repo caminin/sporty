@@ -61,16 +61,6 @@ Le système de test SHALL vérifier l'initialisation du système de listes sans 
 - **THEN** le système SHALL les conserver telles quelles
 - **THEN** le système SHALL ne pas en créer de nouvelles
 
-#### Scenario: Initialisation sans lecture automatique du seed
-- **WHEN** l'initialisation s'exécute
-- **THEN** le contenu de `default-seed.json` ne doit pas être chargé automatiquement
-- **THEN** aucune conversion implicite vers une liste par défaut n'est attendue
-
-#### Scenario: Gestion d'erreur de seed lors d'un import explicite
-- **WHEN** un administrateur déclenche un import par seed explicite
-- **AND** `default-seed.json` est absent
-- **THEN** le fallback `globalRestTime: 15` et `groups: {}` est utilisé pour la liste cible
-
 ### Requirement: Test de la Gestion d'Erreurs
 Le système de test SHALL vérifier la gestion appropriée des erreurs du système de fichiers.
 
@@ -96,4 +86,54 @@ Le système de test SHALL inclure des tests d'intégration vérifiant le workflo
 #### Scenario: Gestion de plusieurs listes simultanées
 - **WHEN** plusieurs listes sont créées et modifiées simultanément
 - **THEN** le système SHALL maintenir l'isolation des données entre toutes les listes
+
+### Requirement: Test utilities for exercise lists
+The list system test suite SHALL use shared helpers that build and assert on WorkoutConfig in catalog + reference format. Tests that construct groups with embedded exercise objects SHALL be updated to use catalog entries and group references.
+
+#### Scenario: Helpers create valid v2 configs
+- **WHEN** tests use `createTestConfig`, `createCustomTestConfig`, or `createTrackedTestList`
+- **THEN** `config.exercises` is present and group placements are references
+- **THEN** validation tests in `data-validation.test.ts` assert catalog and reference integrity
+
+#### Scenario: Invalid format is rejected
+- **WHEN** tests load or import config without `exercises` or with embedded group exercises
+- **THEN** validation fails with an explicit error
+- **THEN** no silent conversion occurs
+
+### Requirement: Admin UI simplification test coverage
+The test suite SHALL cover catalog default value editing and simplified group/import admin behavior where integration or component tests exist for list management.
+
+#### Scenario: Catalog default update persists
+- **WHEN** tests update a catalog exercise default `value` through the catalog API or action used by the admin tab
+- **THEN** the persisted list reflects the new default
+- **THEN** a group reference without override resolves to the updated default
+
+#### Scenario: Add to group without override
+- **WHEN** tests add a catalog exercise to a session group through the group action without an override argument
+- **THEN** the new reference has no `value` field
+- **THEN** resolved output uses the catalog default
+
+### Requirement: Split catalog and groups import export tests
+The list system test suite SHALL cover separate catalog and groups JSON import/export paths, replace-all catalog confirmation behavior, and strict rejection of orphan group references.
+
+#### Scenario: Catalog-only import creates list
+- **WHEN** tests call catalog import with valid `exercises` JSON and a list name
+- **THEN** a new list is created with the catalog persisted
+- **THEN** `groups` may be empty
+
+#### Scenario: Groups import rejects orphan exerciseId
+- **WHEN** tests import groups JSON referencing an `exerciseId` not in the active catalog
+- **THEN** import fails with an explicit error
+- **THEN** the stored list is unchanged
+
+#### Scenario: Replace all catalog clears then imports
+- **WHEN** tests import catalog with replace-all into a list that had exercises
+- **THEN** previous catalog ids not in import are removed after successful validation
+- **WHEN** remaining group references would be orphan
+- **THEN** import fails before persist
+
+#### Scenario: Export helpers produce split shapes
+- **WHEN** tests export catalog and groups separately
+- **THEN** catalog export contains `exercises` without requiring `groups`
+- **THEN** groups export contains `groups` with reference-only entries
 

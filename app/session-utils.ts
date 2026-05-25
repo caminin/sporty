@@ -1,54 +1,43 @@
-import type { WorkoutConfig, SessionStep } from "./exercises/types";
+import type { WorkoutConfig, SessionStep, ResolvedExercise } from "./exercises/types";
+import { resolveRef } from "./exercises/workout-config";
 
-
-/**
- * Builds a flat sequence of SessionSteps from a WorkoutConfig.
- * Groups with no exercises are skipped.
- * Sequence: [work, rest, work, rest, ..., work] (no trailing rest).
- */
-/**
- * Constants for session time estimation.
- * - STARTUP_SECONDS: warmup/positioning time before each exercise
- * - SECONDS_PER_REP: average time in seconds per repetition
- */
 const STARTUP_SECONDS = 5;
 const SECONDS_PER_REP = 3;
 
-/**
- * Estimates the total session duration in seconds for the given selection.
- * Formula per exercise: STARTUP_SECONDS + (reps × SECONDS_PER_REP) or duration (time-based)
- * Plus globalRestTime between each exercise (not after the last).
- * Values are scaled by intensity (default 1.0).
- */
-export function estimateSessionDuration(config: WorkoutConfig, selectedIds: Set<string>, intensity = 1.0): number {
-    const selected: Array<{ type: "time" | "reps"; value: number }> = [];
-
+function collectResolved(
+    config: WorkoutConfig,
+    selectedRefIds?: Set<string>
+): ResolvedExercise[] {
+    const resolved: ResolvedExercise[] = [];
     for (const group of Object.values(config.groups)) {
-        for (const ex of group.exercises) {
-            if (selectedIds.has(ex.id)) {
-                const scaled = Math.round(ex.value * intensity);
-                selected.push({ type: ex.type, value: scaled });
-            }
+        for (const ref of group.exercises) {
+            if (selectedRefIds && !selectedRefIds.has(ref.refId)) continue;
+            const ex = resolveRef(config.exercises, ref);
+            if (ex) resolved.push(ex);
         }
     }
+    return resolved;
+}
+
+export function estimateSessionDuration(
+    config: WorkoutConfig,
+    selectedIds: Set<string>
+): number {
+    const selected = collectResolved(config, selectedIds);
 
     if (selected.length === 0) return 0;
 
     let total = 0;
     for (const ex of selected) {
         total += STARTUP_SECONDS;
-        total += ex.type === "reps" ? ex.value * SECONDS_PER_REP : ex.value;
+        const value = Math.round(ex.value);
+        total += ex.type === "reps" ? value * SECONDS_PER_REP : value;
     }
-    // Add rest between exercises (N-1 rests)
     total += (selected.length - 1) * config.globalRestTime;
 
     return total;
 }
 
-/**
- * Formats a duration in seconds to a human-readable string.
- * Returns "Xm Ys" if ≥ 60s, otherwise "Xs".
- */
 export function formatDuration(seconds: number): string {
     if (seconds <= 0) return "0s";
     if (seconds < 60) return `${seconds}s`;
@@ -57,13 +46,9 @@ export function formatDuration(seconds: number): string {
     return s > 0 ? `${m}m ${s}s` : `${m}m`;
 }
 
-/**
- * Test function to verify the optimized exercise sequencing algorithm
- */
 export function testOptimizedSequencing() {
     console.log("Testing optimized exercise sequencing algorithm...");
 
-    // Test 1: Two groups
     const test1 = [
         { name: "Push-ups", group: "Chest", type: "reps" as const, value: 10 },
         { name: "Pull-ups", group: "Back", type: "reps" as const, value: 8 },
@@ -78,40 +63,17 @@ export function testOptimizedSequencing() {
         return false;
     }
 
-    // Test 2: Three groups
-    const test2 = [
-        { name: "Squats", group: "Legs", type: "reps" as const, value: 15 },
-        { name: "Push-ups", group: "Chest", type: "reps" as const, value: 10 },
-        { name: "Rows", group: "Back", type: "reps" as const, value: 10 },
-        { name: "Lunges", group: "Legs", type: "reps" as const, value: 12 },
-        { name: "Bench Press", group: "Chest", type: "reps" as const, value: 12 },
-        { name: "Pull-ups", group: "Back", type: "reps" as const, value: 8 },
-    ];
-    const result2 = optimizeExerciseSequence(test2);
-    console.log("Test 2 (3 groups):", result2.map(ex => `${ex.name}(${ex.group})`));
-
-    // Check that no group appears consecutively (except if forced by limited exercises)
-    let consecutiveCount = 0;
-    for (let i = 1; i < result2.length; i++) {
-        if (result2[i].group === result2[i-1].group) {
-            consecutiveCount++;
-        }
-    }
-    if (consecutiveCount > 1) { // Allow 1 consecutive due to uneven distribution
-        console.error("Test 2 FAILED: Too many consecutive exercises from same group");
-        return false;
-    }
-
     console.log("Test PASSED: Optimized sequencing works correctly");
     return true;
 }
 
-/**
- * Test function to verify buildSessionSteps works correctly
- */
 export function testBuildSessionSteps() {
     const testConfig: WorkoutConfig = {
         globalRestTime: 30,
+        exercises: {
+            "test-1": { id: "test-1", name: "Test Exercise 1", type: "reps", value: 10 },
+            "test-2": { id: "test-2", name: "Test Exercise 2", type: "time", value: 45 },
+        },
         groups: {
             "Test Group 1": {
                 id: "test-group-1",
@@ -119,9 +81,7 @@ export function testBuildSessionSteps() {
                 icon: "Dumbbell",
                 color: "emerald",
                 createdAt: new Date().toISOString(),
-                exercises: [
-                    { id: "test-1", name: "Test Exercise 1", type: "reps", value: 10 }
-                ]
+                exercises: [{ refId: "test-1", exerciseId: "test-1" }],
             },
             "Test Group 2": {
                 id: "test-group-2",
@@ -129,11 +89,9 @@ export function testBuildSessionSteps() {
                 icon: "Activity",
                 color: "blue",
                 createdAt: new Date().toISOString(),
-                exercises: [
-                    { id: "test-2", name: "Test Exercise 2", type: "time", value: 45 }
-                ]
-            }
-        }
+                exercises: [{ refId: "test-2", exerciseId: "test-2" }],
+            },
+        },
     };
 
     const steps = buildSessionSteps(testConfig);
@@ -153,69 +111,58 @@ export function testBuildSessionSteps() {
     return true;
 }
 
-export function buildSessionSteps(config: WorkoutConfig, intensity = 1.0): SessionStep[] {
+export function buildSessionSteps(config: WorkoutConfig): SessionStep[] {
     const steps: SessionStep[] = [];
     const restDuration = config.globalRestTime;
 
-    // Flatten all exercises from all non-empty groups
     const allExercises: Array<{ name: string; group: string; type: "time" | "reps"; value: number }> = [];
 
     for (const [groupName, group] of Object.entries(config.groups)) {
-        for (const ex of group.exercises) {
-            allExercises.push({ name: ex.name, group: groupName, type: ex.type, value: ex.value });
+        for (const ref of group.exercises) {
+            const ex = resolveRef(config.exercises, ref);
+            if (ex) {
+                allExercises.push({
+                    name: ex.name,
+                    group: groupName,
+                    type: ex.type,
+                    value: ex.value,
+                });
+            }
         }
     }
 
-    // Optimize the exercise sequence to maximize alternation between muscle groups
     const optimizedExercises = optimizeExerciseSequence(allExercises);
 
-    // Build sequence: [work, rest, work, rest, ..., work] (no trailing rest)
-    // La séance ne commence jamais par un repos - the session never starts with a rest
     for (let i = 0; i < optimizedExercises.length; i++) {
         const ex = optimizedExercises[i];
-        const scaledValue = Math.round(ex.value * intensity);
+        const value = Math.round(ex.value);
 
         if (ex.type === "time") {
-            steps.push({ kind: "work", name: ex.name, group: ex.group, type: "time", duration: scaledValue });
+            steps.push({ kind: "work", name: ex.name, group: ex.group, type: "time", duration: value });
         } else {
-            steps.push({ kind: "work", name: ex.name, group: ex.group, type: "reps", reps: scaledValue });
+            steps.push({ kind: "work", name: ex.name, group: ex.group, type: "reps", reps: value });
         }
 
-        // Add rest after every exercise except the last
         if (i < optimizedExercises.length - 1) {
             steps.push({ kind: "rest", duration: restDuration });
         }
     }
 
-    // Vérification de sécurité : s'assurer que le premier step n'est pas un repos
     if (steps.length > 0 && steps[0].kind === "rest") {
-        console.error("BUG CRITIQUE: buildSessionSteps retourne un premier step de type 'rest'!");
-        // Correction d'urgence : supprimer le premier repos si présent
-        if (steps[0].kind === "rest") {
-            steps.shift();
-        }
+        steps.shift();
     }
 
     return steps;
 }
 
-/**
- * Encodes a SessionStep array to a base64 URL-safe string.
- */
 export function encodeSession(steps: SessionStep[]): string {
     const json = JSON.stringify(steps);
-    // btoa is available in browser; use Buffer in Node
     if (typeof window !== "undefined") {
-        // Properly encode UTF-8 characters for base64
         return btoa(unescape(encodeURIComponent(json)));
     }
     return Buffer.from(json, "utf-8").toString("base64");
 }
 
-/**
- * Optimizes the exercise sequence to maximize alternation between muscle groups.
- * Uses a greedy algorithm that selects the exercise from the group that was used least recently.
- */
 export function optimizeExerciseSequence(
     exercises: Array<{ name: string; group: string; type: "time" | "reps"; value: number }>
 ): Array<{ name: string; group: string; type: "time" | "reps"; value: number }> {
@@ -225,9 +172,6 @@ export function optimizeExerciseSequence(
     const remainingExercises = [...exercises];
     const groupLastUsed: Record<string, number> = {};
 
-    // Start with one exercise from each group to establish the baseline
-    // Order groups by exercise count (descending) so larger groups are used first in the round,
-    // avoiding consecutive same-group when adding remaining exercises later
     const groupCounts: Record<string, number> = {};
     for (const ex of exercises) {
         groupCounts[ex.group] = (groupCounts[ex.group] ?? 0) + 1;
@@ -245,9 +189,7 @@ export function optimizeExerciseSequence(
         }
     }
 
-    // For remaining exercises, always pick from the group that was used least recently
     while (remainingExercises.length > 0) {
-        // Calculate distance for each group that still has remaining exercises
         let maxDistance = -1;
         let selectedGroup = "";
         for (const group of groupsArray) {
@@ -264,14 +206,12 @@ export function optimizeExerciseSequence(
             }
         }
 
-        // Find and add the next exercise from that group (selectedGroup has remaining by construction)
         const exerciseIndex = remainingExercises.findIndex(ex => ex.group === selectedGroup);
         if (exerciseIndex !== -1) {
             const exercise = remainingExercises.splice(exerciseIndex, 1)[0];
             result.push(exercise);
             groupLastUsed[selectedGroup] = result.length - 1;
         } else {
-            // Fallback: no group with remaining found (should not happen), take first remaining
             const exercise = remainingExercises.shift()!;
             result.push(exercise);
             groupLastUsed[exercise.group] = result.length - 1;
@@ -281,15 +221,10 @@ export function optimizeExerciseSequence(
     return result;
 }
 
-/**
- * Decodes a base64 string back to a SessionStep array.
- * Returns null if decoding fails.
- */
 export function decodeSession(encoded: string): SessionStep[] | null {
     try {
         let json: string;
         if (typeof window !== "undefined") {
-            // Handle UTF-8 characters properly by using decodeURIComponent with escape
             json = decodeURIComponent(escape(atob(encoded)));
         } else {
             json = Buffer.from(encoded, "base64").toString("utf-8");

@@ -33,8 +33,6 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 # Copy exercises data (seed pour initialisation volume vide)
-COPY --chown=nextjs:nodejs app/exercises/default-seed.json ./app/exercises/default-seed.json
-
 # Entrypoint: chown /data pour permettre l'écriture par nextjs (volume Docker)
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh

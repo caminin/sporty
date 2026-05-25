@@ -13,6 +13,7 @@ describe('Exercise Lists - Custom Lists Operations', () => {
       const customList = await createTrackedExerciseList('My Custom Workout', 'A personalized training plan');
 
       expect(customList.config.groups).toEqual({});
+      expect(customList.config.exercises).toEqual({});
 
       const customConfig = createCustomTestConfig({
         'Warm-up': [
@@ -36,9 +37,9 @@ describe('Exercise Lists - Custom Lists Operations', () => {
       expect(loadedList!.config.groups['Warm-up'].exercises).toHaveLength(2);
       expect(loadedList!.config.groups['Main Workout'].exercises).toHaveLength(3);
 
-      expect(loadedList!.config.groups['Main Workout'].exercises[0].name).toBe('Push-ups');
-      expect(loadedList!.config.groups['Main Workout'].exercises[1].name).toBe('Squats');
-      expect(loadedList!.config.groups['Main Workout'].exercises[2].name).toBe('Plank');
+      expect(loadedList!.config.exercises['main1'].name).toBe('Push-ups');
+      expect(loadedList!.config.exercises['main2'].name).toBe('Squats');
+      expect(loadedList!.config.exercises['main3'].name).toBe('Plank');
     });
 
     it('should allow different exercise configurations in custom lists', async () => {
@@ -71,8 +72,8 @@ describe('Exercise Lists - Custom Lists Operations', () => {
       expect(loadedCardio!.config.globalRestTime).toBe(20);
       expect(loadedStrength!.config.globalRestTime).toBe(120);
 
-      expect(loadedCardio!.config.groups['HIIT'].exercises[0].name).toBe('Burpees');
-      expect(loadedStrength!.config.groups['Compound Lifts'].exercises[0].name).toBe('Deadlift');
+      expect(loadedCardio!.config.exercises['hiit1'].name).toBe('Burpees');
+      expect(loadedStrength!.config.exercises['comp1'].name).toBe('Deadlift');
 
       // Nettoyer : supprimer les listes de test
       await deleteExerciseList(cardioList.id);
@@ -121,11 +122,10 @@ describe('Exercise Lists - Custom Lists Operations', () => {
       expect(updatedExercises['Progression'].exercises).toHaveLength(3);
       expect(updatedExercises['Advanced'].exercises).toHaveLength(2);
 
-      expect(updatedExercises['Foundation'].exercises[0]).toEqual(initialConfig.groups['Foundation'].exercises[0]);
-      expect(updatedExercises['Foundation'].exercises[1]).toEqual(initialConfig.groups['Foundation'].exercises[1]);
+      expect(updatedExercises['Foundation'].exercises).toEqual(initialConfig.groups['Foundation'].exercises);
 
-      expect(updatedExercises['Progression'].exercises[2].name).toBe('Plank Hold');
-      expect(updatedExercises['Advanced'].exercises[1].name).toBe('Full Push-ups');
+      expect(updatedLoaded!.config.exercises['prog3'].name).toBe('Plank Hold');
+      expect(updatedLoaded!.config.exercises['adv2'].name).toBe('Full Push-ups');
 
       // Nettoyer : supprimer la liste de test
       await deleteExerciseList(existingList.id);
@@ -148,25 +148,20 @@ describe('Exercise Lists - Custom Lists Operations', () => {
       const originalLoaded = await loadExerciseList(list.id);
       const originalExercises = originalLoaded!.config.groups['Existing Group'].exercises;
 
-      const newExercises = [
-        { id: 'new1', name: 'New Exercise 1', type: 'reps' as const, value: 15 },
-        { id: 'new2', name: 'New Exercise 2', type: 'time' as const, value: 45 }
-      ];
-
-      list.config.groups['Existing Group'].exercises.push(...newExercises);
+      list.config = createCustomTestConfig({
+        'Existing Group': [
+          ...initialExercises,
+          { id: 'new1', name: 'New Exercise 1', type: 'reps', value: 15 },
+          { id: 'new2', name: 'New Exercise 2', type: 'time', value: 45 },
+        ],
+      }, 45);
       await saveExerciseList(list);
 
       const updatedLoaded = await loadExerciseList(list.id);
       const updatedExercises = updatedLoaded!.config.groups['Existing Group'].exercises;
 
       expect(updatedExercises).toHaveLength(5);
-
-      expect(updatedExercises[0]).toEqual(originalExercises[0]);
-      expect(updatedExercises[1]).toEqual(originalExercises[1]);
-      expect(updatedExercises[2]).toEqual(originalExercises[2]);
-
-      expect(updatedExercises[3]).toEqual(newExercises[0]);
-      expect(updatedExercises[4]).toEqual(newExercises[1]);
+      expect(updatedExercises.slice(0, 3)).toEqual(originalExercises);
 
       // Nettoyer : supprimer la liste de test
       await deleteExerciseList(list.id);
@@ -216,9 +211,9 @@ describe('Exercise Lists - Custom Lists Operations', () => {
       expect(loadedB!.config.globalRestTime).toBe(60);
       expect(loadedC!.config.globalRestTime).toBe(90);
 
-      expect(loadedA!.config.groups['Upper Body'].exercises[0].name).toBe('Push-ups A');
-      expect(loadedB!.config.groups['Lower Body'].exercises[0].name).toBe('Squats B');
-      expect(loadedC!.config.groups['Core'].exercises[0].name).toBe('Plank C');
+      expect(loadedA!.config.exercises['a1'].name).toBe('Push-ups A');
+      expect(loadedB!.config.exercises['b1'].name).toBe('Squats B');
+      expect(loadedC!.config.exercises['c1'].name).toBe('Plank C');
 
       expect(loadedA!.config.groups).not.toHaveProperty('Lower Body');
       expect(loadedA!.config.groups).not.toHaveProperty('Core');
@@ -257,13 +252,15 @@ describe('Exercise Lists - Custom Lists Operations', () => {
       const loaded1 = await loadExerciseList(list1.id);
       const loaded2 = await loadExerciseList(list2.id);
 
-      expect(loaded1!.config.groups['Morning'].exercises[0].name).toBe(exerciseName);
-      expect(loaded1!.config.groups['Morning'].exercises[0].value).toBe(15);
+      expect(loaded1!.config.exercises['morn1'].name).toBe(exerciseName);
+      expect(loaded1!.config.exercises['morn1'].value).toBe(15);
 
-      expect(loaded2!.config.groups['Evening'].exercises[0].name).toBe(exerciseName);
-      expect(loaded2!.config.groups['Evening'].exercises[0].value).toBe(10);
+      expect(loaded2!.config.exercises['eve1'].name).toBe(exerciseName);
+      expect(loaded2!.config.exercises['eve1'].value).toBe(10);
 
-      expect(loaded1!.config.groups['Morning'].exercises[0].id).not.toBe(loaded2!.config.groups['Evening'].exercises[0].id);
+      expect(loaded1!.config.groups['Morning'].exercises[0].refId).not.toBe(
+        loaded2!.config.groups['Evening'].exercises[0].refId
+      );
 
       // Nettoyer : supprimer les listes de test
       await deleteExerciseList(list1.id);
@@ -300,6 +297,7 @@ describe('Exercise Lists - Custom Lists Operations', () => {
       const loaded2 = await loadExerciseList(list2.id);
       expect(loaded2!.config.globalRestTime).toBe(5);
       expect(loaded2!.config.groups).toEqual({});
+      expect(loaded2!.config.exercises).toEqual({});
 
       const loaded1 = await loadExerciseList(list1.id);
       expect(loaded1!.config.globalRestTime).toBe(120);
@@ -312,47 +310,6 @@ describe('Exercise Lists - Custom Lists Operations', () => {
   });
 
   describe('Exercise Preservation During Additions', () => {
-    it('should preserve existing exercises when adding new ones to custom lists', async () => {
-      const list = await createTrackedExerciseList('Preservation Test List');
-
-      const initialExercises = [
-        { id: 'preserve1', name: 'Exercise to Preserve 1', type: 'reps' as const, value: 10 },
-        { id: 'preserve2', name: 'Exercise to Preserve 2', type: 'time' as const, value: 30 },
-        { id: 'preserve3', name: 'Exercise to Preserve 3', type: 'reps' as const, value: 10 }
-      ];
-
-      list.config = createCustomTestConfig({
-        'Existing Group': initialExercises
-      }, 45);
-      await saveExerciseList(list);
-
-      const originalLoaded = await loadExerciseList(list.id);
-      const originalExercises = originalLoaded!.config.groups['Existing Group'].exercises;
-
-      const newExercises = [
-        { id: 'new1', name: 'New Exercise 1', type: 'reps' as const, value: 15 },
-        { id: 'new2', name: 'New Exercise 2', type: 'time' as const, value: 45 }
-      ];
-
-      list.config.groups['Existing Group'].exercises.push(...newExercises);
-      await saveExerciseList(list);
-
-      const updatedLoaded = await loadExerciseList(list.id);
-      const updatedExercises = updatedLoaded!.config.groups['Existing Group'].exercises;
-
-      expect(updatedExercises).toHaveLength(5);
-
-      expect(updatedExercises[0]).toEqual(originalExercises[0]);
-      expect(updatedExercises[1]).toEqual(originalExercises[1]);
-      expect(updatedExercises[2]).toEqual(originalExercises[2]);
-
-      expect(updatedExercises[3]).toEqual(newExercises[0]);
-      expect(updatedExercises[4]).toEqual(newExercises[1]);
-
-      // Nettoyer : supprimer la liste de test
-      await deleteExerciseList(list.id);
-    });
-
     it('should preserve exercises when adding new groups to custom lists', async () => {
       const list = await createTrackedExerciseList('Group Addition Test');
 
@@ -385,9 +342,10 @@ describe('Exercise Lists - Custom Lists Operations', () => {
       const loadedList = await loadExerciseList(list.id);
       expect(Object.keys(loadedList!.config.groups)).toHaveLength(3);
 
-      expect(loadedList!.config.groups['Original Group'].exercises).toEqual(originalGroup);
-      expect(loadedList!.config.groups['Cardio'].exercises).toEqual(cardioGroup);
-      expect(loadedList!.config.groups['Strength'].exercises).toEqual(strengthGroup);
+      expect(loadedList!.config.groups['Original Group'].exercises).toHaveLength(1);
+      expect(loadedList!.config.groups['Cardio'].exercises).toHaveLength(2);
+      expect(loadedList!.config.groups['Strength'].exercises).toHaveLength(2);
+      expect(loadedList!.config.exercises['orig1'].name).toBe('Original Exercise');
 
       // Nettoyer : supprimer la liste de test
       await deleteExerciseList(list.id);

@@ -2,47 +2,8 @@
 
 ## Purpose
 
-Source de vérité pour le contenu initial de la liste par défaut, au format Group unifié. Permet d'initialiser une liste par défaut avec des groupes et exercices prédéfinis sans logique de migration de l'ancien format.
+**Retiré** — Le seed explicite (`default-seed.json`, `seedExerciseList`) a été supprimé. Les listes se créent via import JSON (`exercice_list/`) ou une liste vide configurée dans les trois onglets admin.
+
 ## Requirements
-### Requirement: Fichier seed au format Group
 
-Le système MUST fournir un fichier seed contenant une WorkoutConfig valide au format Group unifié.
-
-#### Scenario: Structure du seed
-
-- **WHEN** le fichier seed est chargé
-- **THEN** il contient `globalRestTime` (number) et `groups` (Record<string, Group>)
-- **THEN** chaque groupe a `id`, `name`, `icon`, `createdAt`, `exercises`
-- **THEN** chaque exercice a `id`, `name`, `type`, `value`
-
-#### Scenario: Validation de la structure
-
-- **WHEN** le fichier seed est chargé
-- **THEN** tous les groupes sont validés par `validateGroup`
-- **THEN** les groupes invalides sont ignorés ou une erreur est levée selon la politique de chargement
-
-### Requirement: Chargement du seed par action explicite
-The system MUST charge le seed **seulement** lorsqu’une action utilisateur/admin explicite le demande (pas lors de l’initialisation du stockage).
-
-#### Scenario: Initialisation explicite depuis un identifiant de liste
-- **WHEN** `seedExerciseList(listId)` est appelée avec un `listId` valide
-- **THEN** le fichier `default-seed.json` est lu et validé
-- **THEN** les groupes valides sont filtrés avec `validateGroup`
-- **THEN** le seed est appliqué sur la liste cible
-- **THEN** `globalRestTime` et `groups` reflètent le seed (ou la valeur de secours définie) pour cette liste
-
-#### Scenario: Chargement explicite sans seed
-- **WHEN** `seedExerciseList(listId)` est appelée
-- **AND** `default-seed.json` est absent ou invalide
-- **THEN** la liste cible reçoit `globalRestTime: 15` et `groups: {}`
-- **THEN** l’opération échoue uniquement si la liste cible est introuvable
-
-### Requirement: Suppression de l’initialisation implicite par `ensureDefaultList`
-The system MUST NOT créer automatiquement une liste de type default lors de l’initialisation.
-
-#### Scenario: Initialisation sans création implicite
-- **WHEN** `initializeExerciseLists()` est appelée sur un stockage vide
-- **THEN** le système crée le répertoire de données si nécessaire
-- **THEN** aucune liste n’est auto-créée
-- **THEN** aucune liste n’obtient un identifiant réservé de type `default`
-
+_Aucune exigence active._

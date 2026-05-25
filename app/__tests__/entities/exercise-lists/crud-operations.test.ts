@@ -23,7 +23,8 @@ describe('Exercise Lists - CRUD Operations', () => {
       expect(result.updatedAt).toBeDefined();
       expect(result.config).toBeDefined();
       expect(result.config.globalRestTime).toBe(5); // Default value
-      expect(result.config.groups).toEqual({}); // Empty groups by default
+      expect(result.config.exercises).toEqual({});
+      expect(result.config.groups).toEqual({});
     });
 
     it('should create a list without description', async () => {

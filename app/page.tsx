@@ -4,8 +4,9 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Clock, Dumbbell } from "lucide-react";
-import type { Exercise, WorkoutConfig } from "./exercises/types";
+import type { ResolvedExercise, WorkoutConfig } from "./exercises/types";
 import { getWorkoutConfig } from "./exercises/actions";
+import { resolveGroupExercises } from "./exercises/workout-config";
 import { buildSessionSteps, encodeSession, estimateSessionDuration, formatDuration, testBuildSessionSteps } from "./session-utils";
 import { useExerciseList } from "./contexts/ExerciseListContext";
 import { ExerciseListSelector } from "./components/ExerciseListSelector";
@@ -35,8 +36,10 @@ function loadSelection(config: WorkoutConfig): Set<string> {
 
 function getAllIds(config: WorkoutConfig): Set<string> {
     const ids = new Set<string>();
-    for (const group of Object.values(config.groups)) {
-        for (const ex of group.exercises) ids.add(ex.id);
+    for (const groupName of Object.keys(config.groups)) {
+        for (const ex of resolveGroupExercises(config, groupName)) {
+            ids.add(ex.refId);
+        }
     }
     return ids;
 }
@@ -69,31 +72,6 @@ function Header() {
                 <span className="material-symbols-outlined">settings</span>
             </Link>
         </header>
-    );
-}
-
-function IntensityControl({ value, onChange }: { value: number; onChange: (v: number) => void }) {
-    return (
-        <>
-            <div className="mb-6 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-primary">speed</span>
-                    <h2 className="text-lg font-bold">Intensité Globale</h2>
-                </div>
-                <span className="rounded-lg bg-primary/10 px-3 py-1 text-sm font-bold text-primary">x{value}</span>
-            </div>
-            <div className="relative mb-8 pt-2">
-                <input
-                    className="w-full bg-transparent appearance-none cursor-pointer focus:outline-none"
-                    max="2" min="0.5" step="0.1" type="range"
-                    value={value}
-                    onChange={(e) => onChange(parseFloat(e.target.value))}
-                />
-                <div className="mt-3 flex justify-between text-xs font-medium text-slate-400 dark:text-text-muted-dark px-1">
-                    <span>0.5x</span><span>1x</span><span>1.5x</span><span>2x</span>
-                </div>
-            </div>
-        </>
     );
 }
 
@@ -132,19 +110,17 @@ function ExerciseGroupBlock({
     isCustom = false,
     icon,
     color,
-    intensity = 1.0,
 }: {
     groupName: string;
-    exercises: Exercise[];
+    exercises: ResolvedExercise[];
     selectedIds: Set<string>;
     onToggle: (id: string) => void;
     isCustom?: boolean;
     icon?: string;
     color?: string;
-    intensity?: number;
 }) {
     const style = color && isGroupColorKey(color) ? GROUP_COLOR_STYLES[color] : DEFAULT_STYLE;
-    const selectedCount = exercises.filter((ex) => selectedIds.has(ex.id)).length;
+    const selectedCount = exercises.filter((ex) => selectedIds.has(ex.refId)).length;
 
     return (
         <div className={`overflow-hidden rounded-xl bg-white dark:bg-surface-dark shadow-sm ring-1 ring-black/5 dark:ring-white/5 ${style.borderClass}`}>
@@ -171,12 +147,12 @@ function ExerciseGroupBlock({
                     <p className="py-3 text-sm italic text-slate-400 dark:text-text-muted-dark">Aucun exercice dans ce groupe.</p>
                 )}
                 {exercises.map((ex) => {
-                    const isSelected = selectedIds.has(ex.id);
+                    const isSelected = selectedIds.has(ex.refId);
                     return (
                         <button
-                            key={ex.id}
-                            id={`toggle-exercise-${ex.id}`}
-                            onClick={() => onToggle(ex.id)}
+                            key={ex.refId}
+                            id={`toggle-exercise-${ex.refId}`}
+                            onClick={() => onToggle(ex.refId)}
                             aria-pressed={isSelected}
                             aria-label={`${isSelected ? "Retirer" : "Ajouter"} ${ex.name}`}
                             className={`group w-full flex items-center gap-3 py-2.5 border-b border-slate-100 dark:border-white/5 last:border-0 text-left transition-opacity ${isSelected ? "opacity-100" : "opacity-40"
@@ -192,7 +168,7 @@ function ExerciseGroupBlock({
                                 {ex.name}
                             </span>
                             <span className="rounded-full bg-slate-100 dark:bg-white/10 px-2 py-0.5 text-xs font-semibold text-slate-500 dark:text-text-muted-dark">
-                                {ex.type === "time" ? `${Math.round(ex.value * intensity)}s` : `${Math.round(ex.value * intensity)} reps`}
+                                {ex.type === "time" ? `${ex.value}s` : `${ex.value} reps`}
                             </span>
                             {/* Toggle indicator */}
                             <div
@@ -219,11 +195,9 @@ function ExerciseGroupBlock({
 function FloatingActionButton({
     config,
     selectedIds,
-    intensity = 1.0,
 }: {
     config: WorkoutConfig | null;
     selectedIds: Set<string>;
-    intensity?: number;
 }) {
     const router = useRouter();
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -234,7 +208,7 @@ function FloatingActionButton({
         // Build a filtered config with only selected exercises
         const filteredGroups: WorkoutConfig["groups"] = {};
         for (const [groupName, group] of Object.entries(config.groups)) {
-            const selected = group.exercises.filter((ex) => selectedIds.has(ex.id));
+            const selected = group.exercises.filter((ref) => selectedIds.has(ref.refId));
             if (selected.length > 0) {
                 filteredGroups[groupName] = { ...group, exercises: selected };
             }
@@ -245,7 +219,7 @@ function FloatingActionButton({
         console.log("Debug: selectedIds", Array.from(selectedIds));
         console.log("Debug: config.groups keys", Object.keys(config.groups));
 
-        const steps = buildSessionSteps(filteredConfig, intensity);
+        const steps = buildSessionSteps(filteredConfig);
         console.log("Debug: steps", steps);
 
         if (steps.length === 0) {
@@ -290,7 +264,6 @@ function FloatingActionButton({
 export default function BadmintonSessionPage() {
     const [config, setConfig] = useState<WorkoutConfig | null>(null);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-    const [intensity, setIntensity] = useState(1.0);
     const { selectedListId, setSelectedListId } = useExerciseList();
 
     useEffect(() => {
@@ -334,13 +307,12 @@ export default function BadmintonSessionPage() {
     // Count only selected exercises for the summary
     const totalSelected = config
         ? Object.values(config.groups).reduce(
-            (sum, group) => sum + group.exercises.filter((ex) => selectedIds.has(ex.id)).length,
+            (sum, group) => sum + group.exercises.filter((ref) => selectedIds.has(ref.refId)).length,
             0
         )
         : 0;
 
-    // Estimate session duration based on selected exercises and intensity
-    const estimatedSeconds = config ? estimateSessionDuration(config, selectedIds, intensity) : 0;
+    const estimatedSeconds = config ? estimateSessionDuration(config, selectedIds) : 0;
 
     return (
         <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-text-main-dark antialiased">
@@ -356,9 +328,7 @@ export default function BadmintonSessionPage() {
                         />
                     </section>
 
-                    {/* Intensity + Summary card */}
                     <section className="rounded-2xl bg-white dark:bg-surface-dark p-6 shadow-md ring-1 ring-black/5 dark:ring-white/5">
-                        <IntensityControl value={intensity} onChange={setIntensity} />
                         <SessionSummary
                             restTime={config?.globalRestTime ?? 30}
                             totalExercises={totalSelected}
@@ -396,13 +366,12 @@ export default function BadmintonSessionPage() {
                                     <ExerciseGroupBlock
                                         key={groupName}
                                         groupName={groupName}
-                                        exercises={group.exercises}
+                                        exercises={resolveGroupExercises(config, groupName)}
                                         selectedIds={selectedIds}
                                         onToggle={handleToggle}
                                         isCustom={group.id.startsWith("custom_")}
                                         icon={group.icon}
                                         color={group.color}
-                                        intensity={intensity}
                                     />
                                 ))}
                             </div>
@@ -410,7 +379,7 @@ export default function BadmintonSessionPage() {
                     </section>
                 </main>
 
-                <FloatingActionButton config={config} selectedIds={selectedIds} intensity={intensity} />
+                <FloatingActionButton config={config} selectedIds={selectedIds} />
             </div>
         </div>
     );

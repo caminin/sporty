@@ -28,11 +28,13 @@ describe('Exercise Lists - Data Validation', () => {
       const loadedExercises = loaded!.config.groups['Valid Exercises'].exercises;
 
       expect(loadedExercises).toHaveLength(3);
-      loadedExercises.forEach((exercise, index) => {
-        expect(exercise.id).toBe(validExercises[index].id);
-        expect(exercise.name).toBe(validExercises[index].name);
-        expect(exercise.type).toBe(validExercises[index].type);
-        expect(exercise.value).toBe(validExercises[index].value);
+      loadedExercises.forEach((ref, index) => {
+        expect(ref.refId).toBe(validExercises[index].id);
+        expect(ref.exerciseId).toBe(validExercises[index].id);
+        const def = loaded!.config.exercises[validExercises[index].id];
+        expect(def.name).toBe(validExercises[index].name);
+        expect(def.type).toBe(validExercises[index].type);
+        expect(def.value).toBe(validExercises[index].value);
       });
     });
 
@@ -54,14 +56,9 @@ describe('Exercise Lists - Data Validation', () => {
       const loaded = await loadExerciseList(list.id);
       const loadedExercises = loaded!.config.groups['Data Types'].exercises;
 
-      expect(loadedExercises[0].value).toBe(15);
-      expect(typeof loadedExercises[0].value).toBe('number');
-
-      expect(loadedExercises[1].value).toBe(45);
-      expect(typeof loadedExercises[1].value).toBe('number');
-
-      expect(loadedExercises[2].value).toBe(5000);
-      expect(typeof loadedExercises[2].value).toBe('number');
+      expect(loaded!.config.exercises['int'].value).toBe(15);
+      expect(loaded!.config.exercises['float'].value).toBe(45);
+      expect(loaded!.config.exercises['large'].value).toBe(5000);
     });
 
     it('should handle empty exercise arrays', async () => {
@@ -98,10 +95,10 @@ describe('Exercise Lists - Data Validation', () => {
       const loaded = await loadExerciseList(list.id);
       const loadedExercises = loaded!.config.groups['Special Characters'].exercises;
 
-      expect(loadedExercises[0].name).toBe('Push-ups (Modified)');
-      expect(loadedExercises[1].name).toBe('Plank - Advanced');
-      expect(loadedExercises[2].name).toBe('Running: 5K');
-      expect(loadedExercises[3].name).toBe('Squats & Lunges');
+      expect(loaded!.config.exercises['special1'].name).toBe('Push-ups (Modified)');
+      expect(loaded!.config.exercises['special2'].name).toBe('Plank - Advanced');
+      expect(loaded!.config.exercises['special3'].name).toBe('Running: 5K');
+      expect(loaded!.config.exercises['special4'].name).toBe('Squats & Lunges');
     });
   });
 
@@ -125,7 +122,8 @@ describe('Exercise Lists - Data Validation', () => {
 
       list.config = {
         globalRestTime: 30,
-        groups: {}
+        exercises: {},
+        groups: {},
       };
 
       await saveExerciseList(list);
@@ -282,8 +280,8 @@ describe('Exercise Lists - Data Validation', () => {
 
       const [loaded1, loaded2] = await Promise.all([promise1, promise2]);
 
-      expect(loaded1!.config.groups['Group 1'].exercises[0].value).toBe(5);
-      expect(loaded2!.config.groups['Group 2'].exercises[0].value).toBe(10);
+      expect(loaded1!.config.exercises['r1'].value).toBe(5);
+      expect(loaded2!.config.exercises['r2'].value).toBe(10);
     });
   });
 });

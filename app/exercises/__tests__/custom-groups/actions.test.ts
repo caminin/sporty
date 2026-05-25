@@ -17,7 +17,7 @@ describe('Custom Groups Actions', () => {
   });
 
   it('should create a custom group', async () => {
-    const result = await createCustomGroup('Test Group', 'dumbbell', TEST_LIST_ID);
+    const result = await createCustomGroup('Test Group', 'dumbbell', 'blue', TEST_LIST_ID);
 
     expect(result.groups['Test Group']).toBeDefined();
     const createdGroup = result.groups['Test Group'];
@@ -29,7 +29,7 @@ describe('Custom Groups Actions', () => {
 
   it('should update a custom group', async () => {
     // Créer un groupe d'abord
-    await createCustomGroup('Original Name', 'dumbbell', TEST_LIST_ID);
+    await createCustomGroup('Original Name', 'dumbbell', 'blue', TEST_LIST_ID);
 
     // Mettre à jour le groupe
     const updateResult = await updateCustomGroup('Original Name', { name: 'Updated Name', icon: 'heart' }, TEST_LIST_ID);
@@ -41,7 +41,7 @@ describe('Custom Groups Actions', () => {
 
   it('should delete a custom group', async () => {
     // Créer un groupe d'abord
-    const createResult = await createCustomGroup('Group to Delete', 'dumbbell', TEST_LIST_ID);
+    const createResult = await createCustomGroup('Group to Delete', 'dumbbell', 'blue', TEST_LIST_ID);
 
     // Vérifier que le groupe existe
     expect(createResult.groups['Group to Delete']).toBeDefined();

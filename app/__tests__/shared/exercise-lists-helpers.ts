@@ -1,46 +1,54 @@
-import { WorkoutConfig } from '../../exercises/types';
+import { WorkoutConfig, Group, GroupExerciseRef, ExerciseDefinition } from '../../exercises/types';
+import type { MuscleGroupKey } from '../../exercises/muscle-groups';
+import { DEFAULT_MUSCLE_GROUP } from '../../exercises/muscle-groups';
 import { ExerciseList } from '../../exercises/lists';
-import { createTrackedExerciseList } from './test-helpers';
 
-/** Convertit un groupe au format tableau vers le format unifié */
-function toUnifiedGroup(name: string, exercises: { id: string; name: string; type: 'reps' | 'time'; value: number }[]) {
+function toUnifiedGroup(
+  name: string,
+  catalog: Record<string, ExerciseDefinition>,
+  refs: GroupExerciseRef[]
+): Group {
   return {
     id: `custom_${name.toLowerCase().replace(/\s/g, '_')}_${Date.now()}`,
     name,
     icon: 'Activity',
     color: 'blue',
     createdAt: new Date().toISOString(),
-    exercises
+    exercises: refs,
   };
 }
 
-/**
- * Utilitaires pour créer des configurations de test pour les listes d'exercices
- */
 export function createTestConfig(overrides?: Partial<WorkoutConfig>): WorkoutConfig {
+  const exercises: Record<string, ExerciseDefinition> = {
+    push1: { id: 'push1', name: 'Push-ups', type: 'reps', value: 10, muscleGroup: 'pecs' },
+    push2: { id: 'push2', name: 'Bench Press', type: 'reps', value: 8, muscleGroup: 'pecs' },
+    pull1: { id: 'pull1', name: 'Pull-ups', type: 'reps', value: 8, muscleGroup: 'dos' },
+    pull2: { id: 'pull2', name: 'Rows', type: 'reps', value: 10, muscleGroup: 'dos' },
+    legs1: { id: 'legs1', name: 'Squats', type: 'reps', value: 12, muscleGroup: 'jambes' },
+    legs2: { id: 'legs2', name: 'Lunges', type: 'reps', value: 10, muscleGroup: 'jambes' },
+  };
+
   return {
     globalRestTime: 30,
+    exercises,
     groups: {
-      'Push': toUnifiedGroup('Push', [
-        { id: 'push1', name: 'Push-ups', type: 'reps', value: 10 },
-        { id: 'push2', name: 'Bench Press', type: 'reps', value: 8 }
+      Push: toUnifiedGroup('Push', exercises, [
+        { refId: 'push1', exerciseId: 'push1' },
+        { refId: 'push2', exerciseId: 'push2' },
       ]),
-      'Pull': toUnifiedGroup('Pull', [
-        { id: 'pull1', name: 'Pull-ups', type: 'reps', value: 8 },
-        { id: 'pull2', name: 'Rows', type: 'reps', value: 10 }
+      Pull: toUnifiedGroup('Pull', exercises, [
+        { refId: 'pull1', exerciseId: 'pull1' },
+        { refId: 'pull2', exerciseId: 'pull2' },
       ]),
-      'Legs': toUnifiedGroup('Legs', [
-        { id: 'legs1', name: 'Squats', type: 'reps', value: 12 },
-        { id: 'legs2', name: 'Lunges', type: 'reps', value: 10 }
-      ])
+      Legs: toUnifiedGroup('Legs', exercises, [
+        { refId: 'legs1', exerciseId: 'legs1' },
+        { refId: 'legs2', exerciseId: 'legs2' },
+      ]),
     },
-    ...overrides
+    ...overrides,
   };
 }
 
-/**
- * Crée une liste d'exercices de test
- */
 export function createTestList(name: string = 'Test List', config?: WorkoutConfig): ExerciseList {
   const now = new Date().toISOString();
   return {
@@ -49,52 +57,68 @@ export function createTestList(name: string = 'Test List', config?: WorkoutConfi
     description: `Test list: ${name}`,
     createdAt: now,
     updatedAt: now,
-    config: config || createTestConfig()
+    config: config || createTestConfig(),
   };
 }
 
-/**
- * Crée une liste d'exercices de test avec tracking automatique pour le nettoyage
- */
 export function createTrackedTestList(name: string = 'Test List', config?: WorkoutConfig): ExerciseList {
   const list = createTestList(name, config);
 
-  // Tracker automatiquement si on est dans un environnement de test
   if (typeof process !== 'undefined' && process.env.DATA_DIR?.includes('tmp/test-data')) {
     try {
-      // Importer dynamiquement pour éviter les dépendances circulaires
       const { createdListIds } = require('./test-helpers');
       createdListIds.push(list.id);
     } catch {
-      // Ignore les erreurs d'import
+      // ignore
     }
   }
 
   return list;
 }
 
-/**
- * Crée une configuration de test minimale (liste vide)
- */
 export function createEmptyTestConfig(): WorkoutConfig {
   return {
     globalRestTime: 5,
-    groups: {}
+    exercises: {},
+    groups: {},
   };
 }
 
-/**
- * Crée une configuration de test avec des exercices personnalisés.
- * Accepte groups au format ancien (tableaux) ou nouveau (objets Group).
- */
+/** Build catalog + groups from legacy-style exercise arrays (for tests only). */
 export function createCustomTestConfig(
-  groups: Record<string, { id: string; name: string; icon?: string; color?: 'red' | 'blue' | 'purple' | 'yellow' | 'emerald' | 'primary' | 'orange' | 'cyan'; createdAt?: string; exercises: { id: string; name: string; type: 'reps' | 'time'; value: number }[] } | { id: string; name: string; type: 'reps' | 'time'; value: number }[]>,
+  groups: Record<
+    string,
+    | { id: string; name: string; icon?: string; color?: Group['color']; createdAt?: string; exercises: { id: string; name: string; type: 'reps' | 'time'; value: number }[] }
+    | { id: string; name: string; type: 'reps' | 'time'; value: number }[]
+  >,
   globalRestTime: number = 30
 ): WorkoutConfig {
+  const exercises: Record<string, ExerciseDefinition> = {};
   const unifiedGroups: WorkoutConfig['groups'] = {};
+
   for (const [name, val] of Object.entries(groups)) {
+    const rawExercises = Array.isArray(val) ? val : val.exercises;
+    const refs: GroupExerciseRef[] = [];
+
+    for (const ex of rawExercises) {
+      if (!exercises[ex.id]) {
+        const muscleGroup: MuscleGroupKey =
+          'muscleGroup' in ex && typeof ex.muscleGroup === 'string'
+            ? (ex.muscleGroup as MuscleGroupKey)
+            : DEFAULT_MUSCLE_GROUP;
+        exercises[ex.id] = {
+          id: ex.id,
+          name: ex.name,
+          type: ex.type,
+          value: ex.value,
+          muscleGroup,
+        };
+      }
+      refs.push({ refId: ex.id, exerciseId: ex.id });
+    }
+
     if (Array.isArray(val)) {
-      unifiedGroups[name] = toUnifiedGroup(name, val);
+      unifiedGroups[name] = toUnifiedGroup(name, exercises, refs);
     } else {
       unifiedGroups[name] = {
         id: val.id || `custom_${name}_${Date.now()}`,
@@ -102,9 +126,10 @@ export function createCustomTestConfig(
         icon: val.icon || 'Activity',
         color: val.color || 'blue',
         createdAt: val.createdAt || new Date().toISOString(),
-        exercises: val.exercises
+        exercises: refs,
       };
     }
   }
-  return { globalRestTime, groups: unifiedGroups };
+
+  return { globalRestTime, exercises, groups: unifiedGroups };
 }

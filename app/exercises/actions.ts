@@ -1,8 +1,18 @@
 "use server";
 
-import type { Exercise, WorkoutConfig, Group, GroupColorKey } from "./types";
+import type {
+    ExerciseDefinition,
+    ExerciseType,
+    Group,
+    GroupColorKey,
+    WorkoutConfig,
+} from "./types";
 import { loadExerciseList, saveExerciseList, initializeExerciseLists } from "./lists";
-import { migrateWorkoutConfig } from "./workout-config";
+import {
+    getCatalogExerciseIdsUsedInGroups,
+    parseWorkoutConfig,
+    resolveRef,
+} from "./workout-config";
 
 function requireActiveListId(listId: string | undefined): string {
   if (!listId || listId.trim().length === 0) {
@@ -11,32 +21,20 @@ function requireActiveListId(listId: string | undefined): string {
   return listId;
 }
 
-// Fonction pour charger une liste d'exercices
-export async function getWorkoutConfig(listId: string): Promise<WorkoutConfig> {
-    const activeListId = requireActiveListId(listId);
-    // Initialiser le système de listes si nécessaire
-    await initializeExerciseLists();
-
-    // Charger la liste spécifiée
-    const list = await loadExerciseList(activeListId);
-    if (list) {
-        // Apply migration if needed
-        const migratedConfig = migrateWorkoutConfig(list.config);
-
-        // Save migrated config if it was changed
-        if (JSON.stringify(migratedConfig) !== JSON.stringify(list.config)) {
-            list.config = migratedConfig;
-            await saveExerciseList(list);
-        }
-
-        return migratedConfig;
+async function loadValidConfig(listId: string): Promise<WorkoutConfig> {
+    const list = await loadExerciseList(listId);
+    if (!list) {
+        throw new Error(`Liste d'exercices '${listId}' introuvable.`);
     }
-
-    // Lever une erreur explicite si la liste n'existe pas
-    throw new Error(`Liste d'exercices '${activeListId}' introuvable. Vérifiez qu'elle existe ou sélectionnez une autre liste.`);
+    return list.config;
 }
 
-// Fonction helper pour sauvegarder une liste
+export async function getWorkoutConfig(listId: string): Promise<WorkoutConfig> {
+    const activeListId = requireActiveListId(listId);
+    await initializeExerciseLists();
+    return loadValidConfig(activeListId);
+}
+
 async function saveWorkoutConfigForList(config: WorkoutConfig, listId: string): Promise<void> {
     const activeListId = requireActiveListId(listId);
     const list = await loadExerciseList(activeListId);
@@ -46,37 +44,6 @@ async function saveWorkoutConfigForList(config: WorkoutConfig, listId: string): 
     } else {
         throw new Error('La liste cible est introuvable. Sélectionnez une liste existante.');
     }
-}
-
-export async function addExercise(
-    groupName: string,
-    exercise: Omit<Exercise, "id">,
-    listId: string
-): Promise<WorkoutConfig> {
-    const config = await getWorkoutConfig(listId);
-    const group = config.groups[groupName];
-    if (!group) {
-        throw new Error(`Groupe '${groupName}' introuvable. Créez d'abord le groupe.`);
-    }
-    const id = `${groupName.slice(0, 2).toLowerCase()}-${Date.now()}`;
-    group.exercises.push({ id, ...exercise });
-
-    await saveWorkoutConfigForList(config, listId);
-    return config;
-}
-
-export async function deleteExercise(
-    groupName: string,
-    exerciseId: string,
-    listId: string
-): Promise<WorkoutConfig> {
-    const config = await getWorkoutConfig(listId);
-    const group = config.groups[groupName];
-    if (group) {
-        group.exercises = group.exercises.filter((ex) => ex.id !== exerciseId);
-    }
-    await saveWorkoutConfigForList(config, listId);
-    return config;
 }
 
 export async function updateGlobalRestTime(
@@ -89,7 +56,58 @@ export async function updateGlobalRestTime(
     return config;
 }
 
-// Fonctions CRUD unifiées pour tous les groupes
+export async function addCatalogExercise(
+    exercise: Omit<ExerciseDefinition, "id">,
+    listId: string,
+    id?: string
+): Promise<WorkoutConfig> {
+    const config = await getWorkoutConfig(listId);
+    const exerciseId = id ?? `ex-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    if (config.exercises[exerciseId]) {
+        throw new Error(`Un exercice avec l'id '${exerciseId}' existe déjà dans le catalogue`);
+    }
+    config.exercises[exerciseId] = { id: exerciseId, ...exercise };
+    await saveWorkoutConfigForList(config, listId);
+    return config;
+}
+
+export async function updateCatalogExercise(
+    exerciseId: string,
+    updates: Partial<Pick<ExerciseDefinition, "name" | "type" | "value" | "muscleGroup">>,
+    listId: string
+): Promise<WorkoutConfig> {
+    const config = await getWorkoutConfig(listId);
+    const def = config.exercises[exerciseId];
+    if (!def) {
+        throw new Error(`Exercice catalogue '${exerciseId}' introuvable`);
+    }
+    if (updates.name !== undefined) def.name = updates.name;
+    if (updates.type !== undefined) def.type = updates.type;
+    if (updates.value !== undefined) {
+        if (updates.value <= 0) throw new Error('La valeur doit être positive');
+        def.value = updates.value;
+    }
+    if (updates.muscleGroup !== undefined) def.muscleGroup = updates.muscleGroup;
+    await saveWorkoutConfigForList(config, listId);
+    return config;
+}
+
+export async function deleteCatalogExercise(
+    exerciseId: string,
+    listId: string
+): Promise<WorkoutConfig> {
+    const config = await getWorkoutConfig(listId);
+    const usage = getCatalogExerciseIdsUsedInGroups(config);
+    const groups = usage.get(exerciseId);
+    if (groups && groups.length > 0) {
+        throw new Error(
+            `Impossible de supprimer : exercice utilisé dans ${groups.join(', ')}`
+        );
+    }
+    delete config.exercises[exerciseId];
+    await saveWorkoutConfigForList(config, listId);
+    return config;
+}
 
 export async function createGroup(
     name: string,
@@ -99,22 +117,19 @@ export async function createGroup(
 ): Promise<WorkoutConfig> {
     const config = await getWorkoutConfig(listId);
 
-    // Vérifier que le nom du groupe n'existe pas déjà
     if (config.groups[name]) {
         throw new Error(`Un groupe nommé '${name}' existe déjà`);
     }
 
-    // Générer un ID unique
     const id = `custom_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
 
-    // Créer le groupe
     const group: Group = {
         id,
         name,
         icon,
         color,
         createdAt: new Date().toISOString(),
-        exercises: []
+        exercises: [],
     };
 
     config.groups[name] = group;
@@ -134,14 +149,11 @@ export async function updateGroup(
         throw new Error(`Groupe '${groupName}' introuvable`);
     }
 
-    // Appliquer les mises à jour
     if (updates.name !== undefined && updates.name !== groupName) {
-        // Renommage du groupe - vérifier que le nouveau nom n'existe pas
         if (config.groups[updates.name]) {
             throw new Error(`Un groupe nommé '${updates.name}' existe déjà`);
         }
 
-        // Créer le groupe avec le nouveau nom et les autres mises à jour
         const updatedGroup = {
             ...group,
             name: updates.name,
@@ -149,20 +161,11 @@ export async function updateGroup(
             ...(updates.color !== undefined && { color: updates.color }),
         };
         config.groups[updates.name] = updatedGroup;
-
-        // Supprimer l'ancien groupe
         delete config.groups[groupName];
     } else {
-        // Mise à jour simple
-        if (updates.name !== undefined) {
-            group.name = updates.name;
-        }
-        if (updates.icon !== undefined) {
-            group.icon = updates.icon;
-        }
-        if (updates.color !== undefined) {
-            group.color = updates.color;
-        }
+        if (updates.name !== undefined) group.name = updates.name;
+        if (updates.icon !== undefined) group.icon = updates.icon;
+        if (updates.color !== undefined) group.color = updates.color;
     }
 
     await saveWorkoutConfigForList(config, listId);
@@ -180,7 +183,6 @@ export async function deleteGroup(
         throw new Error(`Groupe '${groupName}' introuvable`);
     }
 
-    // Supprimer le groupe
     delete config.groups[groupName];
     await saveWorkoutConfigForList(config, listId);
     return config;
@@ -188,8 +190,9 @@ export async function deleteGroup(
 
 export async function addExerciseToGroup(
     groupName: string,
-    exercise: Omit<Exercise, "id">,
-    listId: string
+    exerciseId: string,
+    listId: string,
+    valueOverride?: number
 ): Promise<WorkoutConfig> {
     const config = await getWorkoutConfig(listId);
 
@@ -198,9 +201,45 @@ export async function addExerciseToGroup(
         throw new Error(`Groupe '${groupName}' introuvable`);
     }
 
-    // Générer un ID unique pour l'exercice
-    const id = `${groupName.slice(0, 2).toLowerCase()}-${Date.now()}`;
-    group.exercises.push({ id, ...exercise });
+    if (!config.exercises[exerciseId]) {
+        throw new Error(`Exercice '${exerciseId}' absent du catalogue`);
+    }
+
+    const refId = `ref-${exerciseId}-${Date.now()}`;
+    const ref = {
+        refId,
+        exerciseId,
+        ...(valueOverride !== undefined && valueOverride > 0 ? { value: valueOverride } : {}),
+    };
+
+    group.exercises.push(ref);
+    await saveWorkoutConfigForList(config, listId);
+    return config;
+}
+
+export async function updateGroupExerciseRef(
+    groupName: string,
+    refId: string,
+    listId: string,
+    valueOverride?: number | null
+): Promise<WorkoutConfig> {
+    const config = await getWorkoutConfig(listId);
+    const group = config.groups[groupName];
+    if (!group) {
+        throw new Error(`Groupe '${groupName}' introuvable`);
+    }
+
+    const ref = group.exercises.find((r) => r.refId === refId);
+    if (!ref) {
+        throw new Error(`Référence '${refId}' introuvable dans le groupe`);
+    }
+
+    if (valueOverride === null || valueOverride === undefined) {
+        delete ref.value;
+    } else {
+        if (valueOverride <= 0) throw new Error('La valeur doit être positive');
+        ref.value = valueOverride;
+    }
 
     await saveWorkoutConfigForList(config, listId);
     return config;
@@ -208,7 +247,7 @@ export async function addExerciseToGroup(
 
 export async function deleteExerciseFromGroup(
     groupName: string,
-    exerciseId: string,
+    refId: string,
     listId: string
 ): Promise<WorkoutConfig> {
     const config = await getWorkoutConfig(listId);
@@ -218,14 +257,12 @@ export async function deleteExerciseFromGroup(
         throw new Error(`Groupe '${groupName}' introuvable`);
     }
 
-    // Supprimer l'exercice du groupe
-    group.exercises = group.exercises.filter(ex => ex.id !== exerciseId);
+    group.exercises = group.exercises.filter((r) => r.refId !== refId);
 
     await saveWorkoutConfigForList(config, listId);
     return config;
 }
 
-// Fonctions de compatibilité (backward compatibility)
 export const createCustomGroup = createGroup;
 export const updateCustomGroup = updateGroup;
 export const deleteCustomGroup = deleteGroup;
