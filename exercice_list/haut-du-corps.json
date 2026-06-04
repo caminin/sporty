@@ -4,6 +4,7 @@
   "exerciseRefs": [
     { "refId": "ef-1", "exerciseId": "ef-1" },
     { "refId": "ef-2", "exerciseId": "ef-2" },
+    { "refId": "ef-3", "exerciseId": "ef-3" },
     { "refId": "ex-bras-curl-01", "exerciseId": "ex-bras-curl-01" },
     { "refId": "ex-bras-curl-02", "exerciseId": "ex-bras-curl-02" },
     { "refId": "ab-3", "exerciseId": "ab-3" },

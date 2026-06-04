@@ -37,6 +37,11 @@ The system SHALL allow authenticated admins to create, update, and delete catalo
 - **THEN** the entry is removed from the global catalog
 - **THEN** the global catalog is persisted
 
+#### Scenario: Delete button removes the targeted row
+- **WHEN** the admin clicks the delete action on a specific exercise row that is not referenced
+- **THEN** the system calls the delete flow with that row's exact `exerciseId`
+- **THEN** only the targeted exercise disappears from the Exercices tab list after persistence
+
 ### Requirement: Catalog import and export in admin
 The system SHALL expose global catalog-only JSON import and export in the **Exercices** admin tab.
 

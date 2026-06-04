@@ -3,11 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "node scripts/copy-bundled-exercice-list.mjs && next build",
+    "bundle:sync": "node scripts/copy-bundled-exercice-list.mjs",
+    "bundle:check": "node scripts/verify-bundled-exercice-list.mjs",
+    "dev": "npm run bundle:sync && next dev",
+    "build": "npm run bundle:sync && npm run bundle:check && next build",
     "start": "next start",
-    "lint": "eslint",
-    "test": "jest"
+    "lint": "npm run bundle:check && eslint",
+    "test": "npm run bundle:sync && npm run bundle:check && jest"
   },
   "dependencies": {
     "lucide-react": "^0.575.0",

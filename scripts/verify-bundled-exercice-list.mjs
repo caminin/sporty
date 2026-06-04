@@ -2,17 +2,17 @@ import path from "path";
 import { fileURLToPath } from "url";
 import tools from "./bundled-exercice-list-tools.cjs";
 
-const { syncBundledExerciceList } = tools;
+const { verifyBundledExerciceListSync } = tools;
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 try {
-  const result = await syncBundledExerciceList(root);
+  const result = await verifyBundledExerciceListSync(root);
   console.log(
-    `Copied exercice_list → public/bundled-exercice-list/ (${result.files.length} fichiers)`
+    `Bundled exercice list synchronisée (${result.files.length} fichiers vérifiés)`
   );
 } catch (error) {
   console.error(
-    error instanceof Error ? error.message : "Échec de la synchronisation du bundle"
+    error instanceof Error ? error.message : "Échec de la vérification du bundle"
   );
   process.exitCode = 1;
 }

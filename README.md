@@ -48,6 +48,14 @@ npm install
 npm run dev
 ```
 
+Le dossier `exercice_list/` est la source canonique des données bundle.  
+Le dossier `public/bundled-exercice-list/` est généré automatiquement via :
+
+```bash
+npm run bundle:sync
+npm run bundle:check
+```
+
 ## Build et déploiement
 
 ### Script automatisé (recommandé)

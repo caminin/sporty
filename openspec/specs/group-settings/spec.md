@@ -27,6 +27,7 @@ The system SHALL provide the group settings admin page (`/group-settings`) with 
 - **THEN** they can delete trainings, set global rest time for the active training, and add or remove catalog exercises in the active training
 - **THEN** they can edit the effective value per training reference (override with reset to catalog default)
 - **THEN** exercises in the active training are displayed grouped by catalog `muscleGroup`
+- **THEN** all allowed muscle-group sections are visible even when a section is empty for the active training
 - **THEN** they can import and export training JSON for the active training
 - **THEN** they can trigger **Réinitialiser** to restore bundled catalog and default trainings
 - **THEN** global catalog CRUD is not shown in this tab
@@ -35,6 +36,7 @@ The system SHALL provide the group settings admin page (`/group-settings`) with 
 - **WHEN** the admin views the Entraînements tab with an active training
 - **THEN** each muscle-group section displays exercises with resolved names, types, and values from the global catalog
 - **THEN** users add exercises only via a picker scoped to the muscle-group section they are adding from
+- **THEN** empty sections still provide the same picker to add the first exercise
 
 ## Requirement: Export Settings as JSON
 The system SHALL export configuration in two separate JSON shapes: global **catalog** export from the **Exercices** tab (`exercises` only) and **training** export from the **Entraînements** tab (`exerciseRefs` and optional `globalRestTime`). Combined full `WorkoutConfig` export from admin UI SHALL NOT be offered.

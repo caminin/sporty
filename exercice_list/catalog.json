@@ -28,6 +28,13 @@
       "value": 20,
       "muscleGroup": "pecs"
     },
+    "ef-3": {
+      "id": "ef-3",
+      "name": "Pompes hautes",
+      "type": "reps",
+      "value": 20,
+      "muscleGroup": "pecs"
+    },
     "ab-3": {
       "id": "ab-3",
       "name": "Crunchs",

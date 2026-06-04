@@ -2,30 +2,44 @@
   "exercises": {
     "ce-3": {
       "id": "ce-3",
-      "name": "Shadow badminton",
+      "name": "Shadow badminton Avant",
       "type": "time",
-      "value": 60,
+      "value": 45,
+      "muscleGroup": "jambes"
+    },
+    "ce-4": {
+      "id": "ce-4",
+      "name": "Shadow badminton Latéral",
+      "type": "time",
+      "value": 45,
       "muscleGroup": "jambes"
     },
     "ef-1": {
       "id": "ef-1",
       "name": "Pompes",
       "type": "reps",
-      "value": 15,
+      "value": 40,
       "muscleGroup": "pecs"
     },
     "ef-2": {
       "id": "ef-2",
-      "name": "Pompes explosifs",
+      "name": "Pompes claquée",
       "type": "reps",
-      "value": 10,
+      "value": 20,
+      "muscleGroup": "pecs"
+    },
+    "ef-3": {
+      "id": "ef-3",
+      "name": "Pompes hautes",
+      "type": "reps",
+      "value": 20,
       "muscleGroup": "pecs"
     },
     "ab-3": {
       "id": "ab-3",
       "name": "Crunchs",
       "type": "reps",
-      "value": 20,
+      "value": 50,
       "muscleGroup": "abdos"
     },
     "ex-dynamisme-01": {
@@ -33,13 +47,6 @@
       "name": "Mountain climbers",
       "type": "time",
       "value": 40,
-      "muscleGroup": "jambes"
-    },
-    "ex-dynamisme-02": {
-      "id": "ex-dynamisme-02",
-      "name": "Fast feet / toe taps sur place",
-      "type": "time",
-      "value": 25,
       "muscleGroup": "jambes"
     },
     "ex-dynamisme-03": {
@@ -53,7 +60,7 @@
       "id": "ex-dynamisme-04",
       "name": "Burpees",
       "type": "reps",
-      "value": 8,
+      "value": 15,
       "muscleGroup": "pecs"
     },
     "ex-jambes-mollets-01": {
@@ -67,7 +74,7 @@
       "id": "ex-jambes-mollets-02",
       "name": "Fentes arrière",
       "type": "reps",
-      "value": 10,
+      "value": 15,
       "muscleGroup": "jambes"
     },
     "ex-jambes-mollets-03": {
@@ -77,13 +84,6 @@
       "value": 25,
       "muscleGroup": "mollets"
     },
-    "ex-jambes-mollets-04": {
-      "id": "ex-jambes-mollets-04",
-      "name": "Calf raises une jambe",
-      "type": "reps",
-      "value": 12,
-      "muscleGroup": "mollets"
-    },
     "ex-jambes-mollets-05": {
       "id": "ex-jambes-mollets-05",
       "name": "Pogos / petits sauts sur l'avant-pied",
@@ -91,32 +91,39 @@
       "value": 20,
       "muscleGroup": "mollets"
     },
+    "ex-jambes-mollets-06": {
+      "id": "ex-jambes-mollets-06",
+      "name": "Sauts latéraux",
+      "type": "reps",
+      "value": 20,
+      "muscleGroup": "mollets"
+    },
     "ex-core-01": {
       "id": "ex-core-01",
       "name": "Gainage face",
       "type": "time",
-      "value": 45,
+      "value": 70,
       "muscleGroup": "abdos"
     },
     "ex-core-02": {
       "id": "ex-core-02",
       "name": "Russian twists",
       "type": "reps",
-      "value": 24,
+      "value": 30,
       "muscleGroup": "abdos"
     },
     "ex-bras-curl-01": {
       "id": "ex-bras-curl-01",
       "name": "Curl haltères",
       "type": "reps",
-      "value": 12,
+      "value": 15,
       "muscleGroup": "bras"
     },
     "ex-bras-curl-02": {
       "id": "ex-bras-curl-02",
       "name": "Curl Zottman haltères",
       "type": "reps",
-      "value": 10,
+      "value": 15,
       "muscleGroup": "bras"
     }
   }

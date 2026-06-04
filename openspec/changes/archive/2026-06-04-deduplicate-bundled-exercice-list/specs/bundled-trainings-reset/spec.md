@@ -7,7 +7,7 @@ The build and development toolchain SHALL treat `exercice_list/` as the single e
 - **WHEN** `npm run build` completes successfully
 - **THEN** bundled copies of `catalog.json` and the two default training files exist under `public/bundled-exercice-list/`
 - **THEN** generated bundled files are byte-equivalent to the canonical source files from `exercice_list/`
-- **THEN** the production image contains these bundled files
+- **THEN** the production image contains these generated bundled files
 
 #### Scenario: Development uses generated defaults
 - **WHEN** a developer starts a local workflow that serves or validates bundled defaults
