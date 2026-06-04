@@ -82,7 +82,7 @@ export function ExerciseListSelector({ selectedListId, onListChange }: ExerciseL
       <div>
         <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
           <span className="material-symbols-outlined text-primary text-base">list_alt</span>
-          Liste d'exercices
+          Entraînement
         </h3>
         <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-50 dark:bg-surface-dark border border-slate-200 dark:border-white/10">
           <div className="animate-spin rounded-full h-5 w-5 border-2 border-slate-300 dark:border-white/20 border-t-primary" />
@@ -97,7 +97,7 @@ export function ExerciseListSelector({ selectedListId, onListChange }: ExerciseL
       <div>
         <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
           <span className="material-symbols-outlined text-primary text-base">list_alt</span>
-          Liste d'exercices
+          Entraînement
         </h3>
         <div className="px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30">
           <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
@@ -111,10 +111,10 @@ export function ExerciseListSelector({ selectedListId, onListChange }: ExerciseL
       <div>
         <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
           <span className="material-symbols-outlined text-primary text-base">list_alt</span>
-          Liste d'exercices
+          Entraînement
         </h3>
         <div className="px-4 py-3 rounded-xl bg-slate-50 dark:bg-surface-dark border border-slate-200 dark:border-white/10">
-          <p className="text-sm text-slate-500 dark:text-text-muted-dark">Aucune liste d'exercices disponible</p>
+          <p className="text-sm text-slate-500 dark:text-text-muted-dark">Aucun entraînement disponible</p>
         </div>
       </div>
     );
@@ -142,11 +142,11 @@ export function ExerciseListSelector({ selectedListId, onListChange }: ExerciseL
               </span>
             </div>
             <div className="text-left min-w-0 flex-1">
-              <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
-                {selectedList?.name || 'Sélectionner une liste'}
+              <p className="text-sm font-medium text-slate-900 dark:text-white break-words">
+                {selectedList?.name || 'Sélectionner un entraînement'}
               </p>
               {selectedList?.description && (
-                <p className="text-xs text-slate-500 dark:text-text-muted-dark truncate">
+                <p className="text-xs text-slate-500 dark:text-text-muted-dark break-words">
                   {selectedList.description}
                 </p>
               )}
@@ -185,11 +185,11 @@ export function ExerciseListSelector({ selectedListId, onListChange }: ExerciseL
                   </span>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
+                  <p className="text-sm font-medium text-slate-900 dark:text-white break-words">
                     {list.name}
                   </p>
                   {list.description && (
-                    <p className="text-xs text-slate-500 dark:text-text-muted-dark truncate">
+                    <p className="text-xs text-slate-500 dark:text-text-muted-dark break-words">
                       {list.description}
                     </p>
                   )}

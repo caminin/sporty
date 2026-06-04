@@ -1,67 +1,97 @@
 import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
-import { createCustomGroup, updateCustomGroup, deleteCustomGroup } from '../../actions';
-import { initializeExerciseLists, createExerciseList, saveExerciseList } from '../../lists';
-import { tempFilesystemSetup } from '../../../__tests__/shared/test-helpers';
-
-const TEST_LIST_ID = 'test-custom-groups-list';
+import {
+  addExerciseToTraining,
+  deleteExerciseFromTraining,
+  getGlobalCatalog,
+  updateTrainingExerciseRef,
+} from '../../actions';
+import { placementsByMuscleGroup } from '../../workout-config';
+import { initializeExerciseLists } from '../../lists';
+import { tempFilesystemSetup, createTrackedExerciseList } from '../../../__tests__/shared/test-helpers';
+import {
+  createTestCatalog,
+  persistTestCatalogAndTraining,
+} from '../../../__tests__/shared/exercise-lists-helpers';
 
 beforeEach(tempFilesystemSetup.beforeEach);
 afterEach(tempFilesystemSetup.afterEach);
 
-describe('Custom Groups Actions', () => {
+describe('Training exercise ref actions', () => {
+  let trainingId: string;
+
   beforeEach(async () => {
     await initializeExerciseLists();
-    const list = await createExerciseList('Test List', 'For custom groups');
-    list.id = TEST_LIST_ID;
-    await saveExerciseList(list);
+    const training = await createTrackedExerciseList('Test Training', 'For exercise refs');
+    await persistTestCatalogAndTraining(training, createTestCatalog());
+    trainingId = training.id;
   });
 
-  it('should create a custom group', async () => {
-    const result = await createCustomGroup('Test Group', 'dumbbell', 'blue', TEST_LIST_ID);
+  it('should add an exercise ref to a training', async () => {
+    const view = await addExerciseToTraining(trainingId, 'push1');
 
-    expect(result.groups['Test Group']).toBeDefined();
-    const createdGroup = result.groups['Test Group'];
-    expect(createdGroup.name).toBe('Test Group');
-    expect(createdGroup.icon).toBe('dumbbell');
-    expect(createdGroup.exercises).toEqual([]);
-    expect(createdGroup.createdAt).toBeDefined();
+    const ref = view.exerciseRefs.find((r) => r.exerciseId === 'push1');
+    expect(ref).toBeDefined();
+    expect(ref!.refId).toBeDefined();
+    expect(ref!.value).toBeUndefined();
   });
 
-  it('should update a custom group', async () => {
-    // Créer un groupe d'abord
-    await createCustomGroup('Original Name', 'dumbbell', 'blue', TEST_LIST_ID);
+  it('should add a ref with value override', async () => {
+    const view = await addExerciseToTraining(trainingId, 'push2', 20);
 
-    // Mettre à jour le groupe
-    const updateResult = await updateCustomGroup('Original Name', { name: 'Updated Name', icon: 'heart' }, TEST_LIST_ID);
-
-    const updatedGroup = updateResult.groups['Updated Name'];
-    expect(updatedGroup.name).toBe('Updated Name');
-    expect(updatedGroup.icon).toBe('heart');
+    const ref = view.exerciseRefs.find((r) => r.exerciseId === 'push2');
+    expect(ref).toBeDefined();
+    expect(ref!.value).toBe(20);
   });
 
-  it('should delete a custom group', async () => {
-    // Créer un groupe d'abord
-    const createResult = await createCustomGroup('Group to Delete', 'dumbbell', 'blue', TEST_LIST_ID);
+  it('should update and clear ref value override', async () => {
+    const withRef = await addExerciseToTraining(trainingId, 'push1');
+    const refId = withRef.exerciseRefs.find((r) => r.exerciseId === 'push1')!.refId;
 
-    // Vérifier que le groupe existe
-    expect(createResult.groups['Group to Delete']).toBeDefined();
+    const overridden = await updateTrainingExerciseRef(trainingId, refId, 25);
+    const ref = overridden.exerciseRefs.find((r) => r.refId === refId);
+    expect(ref!.value).toBe(25);
 
-    // Supprimer le groupe
-    const deleteResult = await deleteCustomGroup('Group to Delete', TEST_LIST_ID);
-
-    // Vérifier que le groupe a été supprimé
-    expect(deleteResult.groups['Group to Delete']).toBeUndefined();
+    const cleared = await updateTrainingExerciseRef(trainingId, refId, null);
+    expect(cleared.exerciseRefs.find((r) => r.refId === refId)!.value).toBeUndefined();
   });
 
-  it('should throw error when updating non-existent group', async () => {
-    await expect(
-      updateCustomGroup('non-existent-group-name', { name: 'New Name' }, TEST_LIST_ID)
-    ).rejects.toThrow('Groupe');
+  it('should delete an exercise ref from a training', async () => {
+    const withRef = await addExerciseToTraining(trainingId, 'pull1');
+    const refId = withRef.exerciseRefs.find((r) => r.exerciseId === 'pull1')!.refId;
+
+    const afterDelete = await deleteExerciseFromTraining(trainingId, refId);
+
+    expect(afterDelete.exerciseRefs.find((r) => r.refId === refId)).toBeUndefined();
+    expect(afterDelete.exerciseRefs.find((r) => r.exerciseId === 'pull1')).toBeUndefined();
   });
 
-  it('should throw error when deleting non-existent group', async () => {
-    await expect(
-      deleteCustomGroup('non-existent-group-name', TEST_LIST_ID)
-    ).rejects.toThrow('Groupe');
+  it('should throw error when adding unknown catalog exercise', async () => {
+    await expect(addExerciseToTraining(trainingId, 'unknown-id')).rejects.toThrow(
+      /absent du catalogue/
+    );
+  });
+
+  it('should no-op when deleting non-existent ref', async () => {
+    const before = await addExerciseToTraining(trainingId, 'push1');
+    const after = await deleteExerciseFromTraining(trainingId, 'non-existent-ref');
+
+    expect(after.exerciseRefs).toEqual(before.exerciseRefs);
+  });
+
+  it('should expose empty groups and allow adding first exercise in one group', async () => {
+    const catalog = await getGlobalCatalog();
+    const emptySections = placementsByMuscleGroup(catalog, [], { includeEmpty: true });
+    const abdosSection = emptySections.find((section) => section.meta.key === 'abdos');
+    expect(abdosSection).toBeDefined();
+    expect(abdosSection?.placements).toHaveLength(0);
+
+    const updated = await addExerciseToTraining(trainingId, 'push1');
+    const sectionsAfterAdd = placementsByMuscleGroup(
+      { exercises: updated.exercises },
+      updated.exerciseRefs,
+      { includeEmpty: true }
+    );
+    const pecsSection = sectionsAfterAdd.find((section) => section.meta.key === 'pecs');
+    expect(pecsSection?.placements.some((row) => row.resolved.exerciseId === 'push1')).toBe(true);
   });
 });

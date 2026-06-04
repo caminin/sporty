@@ -1,36 +1,43 @@
 ## ADDED Requirements
 
-### Requirement: create-exercise-list skill uses catalog format
-The Cursor skill `create-exercise-list` SHALL document and generate JSON with `globalRestTime`, `exercises` (catalog map with `muscleGroup` on each entry), and `groups` (session group reference arrays: `refId`, `exerciseId`, optional `value`). It SHALL NOT generate embedded full exercise objects inside groups or reference `default-seed.json`. It SHALL document that `muscleGroup` is anatomical (e.g. `jambes`), distinct from session group names (e.g. *Explosivité jambes*).
+### Requirement: Exercise list skill documents split files
+The `create-exercise-list` agent skill SHALL document three file types under `exercice_list/`: global `catalog.json`, and per-training `entrainement-*.json` files containing `exerciseRefs` only (no embedded catalog).
 
-#### Scenario: Skill documents v2 structure
-- **WHEN** an agent reads `.cursor/skills/create-exercise-list/SKILL.md`
-- **THEN** the required output shape includes `exercises` with `muscleGroup` and session group references
-- **THEN** validation rules cover catalog entries and resolvable references
-- **THEN** examples use `exercice_list/*.json` as templates
+#### Scenario: Skill references catalog file
+- **WHEN** an agent follows the skill to add catalog exercises
+- **THEN** examples use `exercice_list/catalog.json` for `exercises` with `muscleGroup`
+- **THEN** examples do not duplicate catalog entries inside training files
 
-#### Scenario: Skill generates importable list file
-- **WHEN** the user requests a new list via the skill
-- **THEN** each catalog exercise is defined once in `exercises` with a valid `muscleGroup`
-- **THEN** each session group lists references pointing to catalog ids
-- **THEN** optional per-group `value` is only set when different from the catalog default
+#### Scenario: Skill references training files
+- **WHEN** an agent creates or updates a default training
+- **THEN** examples use `exercice_list/entrainement-<slug>.json` with `exerciseRefs` and optional `globalRestTime`
+- **THEN** every `exerciseId` in refs exists in `catalog.json`
 
-### Requirement: Test helpers produce v2 configs
-Shared test utilities SHALL build `WorkoutConfig` objects in catalog + reference format for all exercise-list tests.
+### Requirement: Repository templates use catalog and training split
+All committed files under `exercice_list/` SHALL use the split format only (`catalog.json` + `entrainement-*.json`). Monolithic files with `exercises` and `groups` SHALL NOT exist in the repository.
 
-#### Scenario: createTestConfig includes catalog
-- **WHEN** tests call `createTestConfig` or `createCustomTestConfig`
-- **THEN** the returned config includes a populated `exercises` map
-- **THEN** group entries are references resolvable against that catalog
-
-#### Scenario: Test documentation matches format
-- **WHEN** a developer reads `app/__tests__/README.md` or entity READMEs
-- **THEN** helper usage describes the catalog + reference shape
-
-### Requirement: Repository JSON templates are v2
-All committed templates under `exercice_list/` SHALL use the catalog + reference format with `muscleGroup` on each catalog entry. `app/exercises/default-seed.json` SHALL NOT exist.
-
-#### Scenario: exercice_list files are valid v2
+#### Scenario: exercice_list files are valid split format
 - **WHEN** a file in `exercice_list/` is loaded through import or used as a skill template
-- **THEN** it contains `exercises` (with `muscleGroup`) and session group references
-- **THEN** validation passes as native catalog + reference format
+- **THEN** `catalog.json` validates as global catalog-only JSON
+- **THEN** each `entrainement-*.json` validates as training-only JSON with refs resolvable against `catalog.json`
+
+#### Scenario: Two default trainings exist
+- **WHEN** the repository is checked out
+- **THEN** exactly two default training files exist besides `catalog.json`
+- **THEN** their `name` fields are **Jambes** and **Haut du corps** respectively
+- **THEN** file slugs MAY remain `entrainement-global` and `entrainement-dynamisme-jambes-mollets-core` for stable ids
+
+### Requirement: Skill documents bundled training names
+The `create-exercise-list` skill SHALL reference default training display names **Jambes** and **Haut du corps** and SHALL document deduplication and muscle-group reclassement when editing `catalog.json`.
+
+#### Scenario: Skill names trainings in French
+- **WHEN** an agent follows the skill to create default trainings
+- **THEN** examples set `name` to **Jambes** or **Haut du corps**
+- **THEN** examples do not use legacy labels « Global » or « Dynamisme jambes mollets core »
+
+### Requirement: Skill lists allowed muscle groups only
+The `create-exercise-list` skill SHALL document allowed `muscleGroup` values: `jambes`, `mollets`, `epaules`, `bras`, `abdos`, `pecs`, `autre`. It SHALL NOT reference `fessiers` or `dos`.
+
+#### Scenario: Skill muscle group enum
+- **WHEN** an agent reads the skill to edit `catalog.json`
+- **THEN** the documented enum excludes `fessiers` and `dos`

@@ -1,39 +1,37 @@
 'use server';
 
 import {
-  listExerciseLists,
-  loadExerciseList,
-  saveExerciseList,
-  createExerciseList,
-  deleteExerciseList,
+  listTrainings,
+  loadTraining,
+  saveTraining,
+  createTraining,
+  deleteTraining,
   initializeExerciseLists,
   listManualListFiles,
-  loadManualListConfig,
+  loadManualFileRaw,
 } from './lists';
-import { WorkoutConfig } from './types';
+import { loadGlobalCatalog, saveGlobalCatalog } from './catalog';
 import {
-  parseWorkoutConfig,
   parseCatalogJson,
-  parseGroupsJson,
-  applyCatalogImport,
-  mergeImportedGroups,
+  parseTrainingJson,
+  applyGlobalCatalogImport,
+  applyTrainingImport,
+  validateTrainingRefsAgainstCatalog,
 } from './workout-config';
-import { validateImportedConfig } from './lists';
+import { resetBundledData, initFromBundleIfEmpty } from './reset-bundled';
+import { verifyAdminAuth } from './admin-auth';
+import type { GlobalCatalog, Training } from './types';
 
-// Vérifier l'authentification admin (mot de passe depuis ADMIN_PASSWORD, fallback 'sporty' en dev)
-function verifyAdminAuth(password: string): boolean {
-  const expected = process.env.ADMIN_PASSWORD ?? 'sporty';
-  return password === expected;
-}
+export { verifyAdminAuth };
 
-// Initialiser le système de listes
 export async function initializeLists() {
   try {
     await initializeExerciseLists();
+    await initFromBundleIfEmpty();
     return { success: true };
   } catch (error) {
-    console.error('Failed to initialize lists:', error);
-    return { success: false, error: 'Failed to initialize lists' };
+    console.error('Failed to initialize:', error);
+    return { success: false, error: 'Failed to initialize' };
   }
 }
 
@@ -41,134 +39,58 @@ export async function getManualListFiles(password: string) {
   if (!verifyAdminAuth(password)) {
     return { success: false, error: 'Invalid admin password' };
   }
-
   try {
     const files = await listManualListFiles();
     return { success: true, files };
-  } catch (error) {
-    console.error('Failed to list manual list files:', error);
+  } catch {
     return { success: false, error: 'Impossible de lister les fichiers d\'import manuel' };
   }
 }
 
-// Lister toutes les listes disponibles
 export async function getExerciseLists() {
   try {
-    const lists = await listExerciseLists();
+    await initializeExerciseLists();
+    await initFromBundleIfEmpty();
+    const lists = await listTrainings();
     return { success: true, lists };
-  } catch (error) {
-    console.error('Failed to get exercise lists:', error);
-    return { success: false, error: 'Failed to load lists' };
+  } catch {
+    return { success: false, error: 'Failed to load trainings' };
   }
 }
 
-// Charger une liste spécifique
-export async function getExerciseList(listId: string) {
+export async function getExerciseList(trainingId: string) {
   try {
-    const list = await loadExerciseList(listId);
-    if (!list) {
-      return { success: false, error: 'List not found' };
+    const training = await loadTraining(trainingId);
+    if (!training) {
+      return { success: false, error: 'Training not found' };
     }
-    return { success: true, list };
-  } catch (error) {
-    console.error('Failed to load exercise list:', error);
-    return { success: false, error: 'Failed to load list' };
+    return { success: true, list: training };
+  } catch {
+    return { success: false, error: 'Failed to load training' };
   }
 }
 
-// Sauvegarder une liste (nécessite authentification admin)
-export async function saveList(listId: string, config: WorkoutConfig, password: string) {
+export async function removeList(trainingId: string, password: string) {
   if (!verifyAdminAuth(password)) {
     return { success: false, error: 'Invalid admin password' };
   }
-
   try {
-    // Charger la liste existante pour préserver les métadonnées
-    const existingList = await loadExerciseList(listId);
-    if (!existingList) {
-      return { success: false, error: 'List not found' };
-    }
-
-    // Mettre à jour la configuration
-    existingList.config = config;
-    await saveExerciseList(existingList);
-
+    await deleteTraining(trainingId);
     return { success: true };
-  } catch (error) {
-    console.error('Failed to save exercise list:', error);
-    return { success: false, error: 'Failed to save list' };
+  } catch {
+    return { success: false, error: 'Failed to delete training' };
   }
 }
 
-// Créer une nouvelle liste (nécessite authentification admin)
-export async function createList(name: string, description: string | undefined, password: string) {
-  if (!verifyAdminAuth(password)) {
-    return { success: false, error: 'Invalid admin password' };
-  }
-
-  try {
-    const list = await createExerciseList(name, description);
-    return { success: true, list };
-  } catch (error) {
-    console.error('Failed to create exercise list:', error);
-    return { success: false, error: 'Failed to create list' };
-  }
-}
-
-// Supprimer une liste (nécessite authentification admin)
-export async function removeList(listId: string, password: string) {
-  if (!verifyAdminAuth(password)) {
-    return { success: false, error: 'Invalid admin password' };
-  }
-
-  try {
-    await deleteExerciseList(listId);
-    return { success: true };
-  } catch (error) {
-    console.error('Failed to delete exercise list:', error);
-    return { success: false, error: 'Failed to delete list' };
-  }
-}
-
-// Importer un fichier ciblé depuis manual-lists (sans scan automatique)
-export async function importListFromManualFolder(fileName: string, listName: string, password: string): Promise<{ success: boolean; listId?: string; error?: string }> {
-  if (!verifyAdminAuth(password)) {
-    return { success: false, error: 'Invalid admin password' };
-  }
-
-  if (!listName.trim()) {
-    return { success: false, error: 'Le nom de la liste est requis' };
-  }
-  if (!fileName.trim()) {
-    return { success: false, error: 'Le fichier à importer est requis' };
-  }
-
-  try {
-    const config = await loadManualListConfig(fileName.trim());
-    const list = await createExerciseList(listName.trim());
-    list.config = config;
-    await saveExerciseList(list);
-    return { success: true, listId: list.id };
-  } catch (error) {
-    console.error('Failed to import list from manual folder:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Impossible d\'importer la liste depuis le dossier manuel'
-    };
-  }
-}
-
-// Vérifier l'authentification admin
 export async function verifyAdmin(password: string) {
-  const isValid = verifyAdminAuth(password);
-  return { success: isValid };
+  return { success: verifyAdminAuth(password) };
 }
 
-export async function importCatalogFromJson(
+export async function importGlobalCatalogFromJson(
   json: string,
   password: string,
-  options: { listName?: string; listId?: string; replaceAll?: boolean }
-): Promise<{ success: boolean; listId?: string; error?: string }> {
+  options: { replaceAll?: boolean }
+): Promise<{ success: boolean; error?: string }> {
   if (!verifyAdminAuth(password)) {
     return { success: false, error: 'Mot de passe admin invalide' };
   }
@@ -180,47 +102,40 @@ export async function importCatalogFromJson(
     return { success: false, error: 'JSON invalide' };
   }
 
-  const raw =
-    parsed && typeof parsed === 'object' && 'config' in parsed
-      ? (parsed as { config: unknown }).config
-      : parsed;
-
-  const parseResult = parseCatalogJson(raw);
+  const parseResult = parseCatalogJson(parsed);
   if (parseResult.error || !parseResult.payload) {
     return { success: false, error: parseResult.error ?? 'Catalogue invalide' };
   }
 
-  const { listId, listName, replaceAll = false } = options;
-
   try {
-    if (!listId) {
-      if (!listName?.trim()) {
-        return { success: false, error: 'Le nom de la liste est requis' };
+    const local = await loadGlobalCatalog();
+    const { replaceAll = false } = options;
+
+    if (replaceAll) {
+      const loaded = await Promise.all(
+        (await listTrainings()).map((m) => loadTraining(m.id))
+      );
+      const valid = loaded.filter((t): t is Training => t !== null);
+      for (const t of valid) {
+        for (const ref of t.exerciseRefs) {
+          if (!parseResult.payload.exercises[ref.exerciseId]) {
+            return {
+              success: false,
+              error: `Impossible de remplacer : « ${ref.exerciseId} » manquant (entraînement « ${t.name} »).`,
+            };
+          }
+        }
       }
-      const list = await createExerciseList(listName.trim());
-      list.config = {
-        globalRestTime: parseResult.payload.globalRestTime ?? 30,
-        exercises: parseResult.payload.exercises,
-        groups: {},
-      };
-      await saveExerciseList(list);
-      return { success: true, listId: list.id };
     }
 
-    const existingList = await loadExerciseList(listId);
-    if (!existingList) {
-      return { success: false, error: 'Liste introuvable' };
-    }
-
-    existingList.config = applyCatalogImport(
-      existingList.config,
+    const updated = applyGlobalCatalogImport(
+      local,
       parseResult.payload,
       replaceAll
     );
-    await saveExerciseList(existingList);
-    return { success: true, listId: existingList.id };
+    await saveGlobalCatalog(updated);
+    return { success: true };
   } catch (error) {
-    console.error('Failed to import catalog:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Impossible d\'importer le catalogue',
@@ -228,19 +143,18 @@ export async function importCatalogFromJson(
   }
 }
 
-export async function importGroupsFromJson(
+/** @deprecated */
+export const importCatalogFromJson = importGlobalCatalogFromJson;
+
+export async function importTrainingFromJson(
   json: string,
-  listId: string,
-  password: string
-): Promise<{ success: boolean; error?: string }> {
+  password: string,
+  options: { trainingName?: string; trainingId?: string; replaceRefs?: boolean }
+): Promise<{ success: boolean; trainingId?: string; error?: string }> {
   if (!verifyAdminAuth(password)) {
     return { success: false, error: 'Mot de passe admin invalide' };
   }
 
-  if (!listId.trim()) {
-    return { success: false, error: 'Sélectionnez une liste active' };
-  }
-
   let parsed: unknown;
   try {
     parsed = JSON.parse(json);
@@ -248,88 +162,103 @@ export async function importGroupsFromJson(
     return { success: false, error: 'JSON invalide' };
   }
 
-  const raw =
-    parsed && typeof parsed === 'object' && 'config' in parsed
-      ? (parsed as { config: unknown }).config
-      : parsed;
-
-  const parseResult = parseGroupsJson(raw);
+  const parseResult = parseTrainingJson(parsed);
   if (parseResult.error || !parseResult.payload) {
-    return { success: false, error: parseResult.error ?? 'Groupes invalides' };
+    return { success: false, error: parseResult.error ?? 'Entraînement invalide' };
   }
 
+  const catalog = await loadGlobalCatalog();
+  const refError = validateTrainingRefsAgainstCatalog(
+    catalog,
+    parseResult.payload.exerciseRefs
+  );
+  if (refError) {
+    return { success: false, error: refError };
+  }
+
+  const { trainingId, trainingName, replaceRefs = false } = options;
+
   try {
-    const existingList = await loadExerciseList(listId);
-    if (!existingList) {
-      return { success: false, error: 'Liste introuvable' };
+    if (!trainingId) {
+      if (!trainingName?.trim() && !parseResult.payload.name?.trim()) {
+        return { success: false, error: 'Le nom de l\'entraînement est requis' };
+      }
+      const training = await createTraining(
+        (trainingName ?? parseResult.payload.name)!.trim()
+      );
+      const updated = applyTrainingImport(training, parseResult.payload, true);
+      await saveTraining(updated);
+      return { success: true, trainingId: updated.id };
     }
 
-    if (Object.keys(existingList.config.exercises).length === 0) {
-      return {
-        success: false,
-        error: 'Importez d\'abord un catalogue d\'exercices dans l\'onglet Liste d\'exercices.',
-      };
+    const existing = await loadTraining(trainingId);
+    if (!existing) {
+      return { success: false, error: 'Entraînement introuvable' };
     }
 
-    existingList.config = mergeImportedGroups(
-      existingList.config,
-      parseResult.payload.groups,
-      parseResult.payload.globalRestTime
+    const updated = applyTrainingImport(
+      existing,
+      parseResult.payload,
+      replaceRefs
     );
-    await saveExerciseList(existingList);
-    return { success: true };
+    await saveTraining(updated);
+    return { success: true, trainingId: updated.id };
   } catch (error) {
-    console.error('Failed to import groups:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Impossible d\'importer les groupes',
+      error: error instanceof Error ? error.message : 'Impossible d\'importer l\'entraînement',
     };
   }
 }
 
-/** Import complet — utilisé par import manuel dossier uniquement */
-export async function importListFromJson(
-  json: string,
-  listName: string,
+export async function resetToBundledDefaults(password: string) {
+  if (!verifyAdminAuth(password)) {
+    return { success: false, error: 'Mot de passe admin invalide' };
+  }
+  try {
+    await resetBundledData();
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Échec de la réinitialisation',
+    };
+  }
+}
+
+export async function importListFromManualFolder(
+  fileName: string,
+  _listName: string,
   password: string
-): Promise<{ success: boolean; listId?: string; error?: string }> {
+): Promise<{ success: boolean; trainingId?: string; error?: string }> {
   if (!verifyAdminAuth(password)) {
     return { success: false, error: 'Invalid admin password' };
   }
 
-  if (!listName.trim()) {
-    return { success: false, error: 'Le nom de la liste est requis' };
-  }
-
-  let parsed: unknown;
   try {
-    parsed = JSON.parse(json);
-  } catch {
-    return { success: false, error: 'JSON invalide' };
-  }
+    const raw = await loadManualFileRaw(fileName.trim());
+    const catalogResult = parseCatalogJson(raw);
+    if (!catalogResult.error && catalogResult.payload) {
+      const local = await loadGlobalCatalog();
+      await saveGlobalCatalog(
+        applyGlobalCatalogImport(local, catalogResult.payload, false)
+      );
+      return { success: true };
+    }
 
-  const rawConfig =
-    parsed && typeof parsed === 'object' && 'config' in parsed
-      ? (parsed as { config: unknown }).config
-      : parsed;
+    const trainingResult = parseTrainingJson(raw);
+    if (!trainingResult.error && trainingResult.payload) {
+      return importTrainingFromJson(JSON.stringify(raw), password, {
+        trainingName: trainingResult.payload.name,
+        replaceRefs: true,
+      });
+    }
 
-  const parseResult = parseWorkoutConfig(rawConfig);
-  if (parseResult.error || !parseResult.config) {
-    return { success: false, error: parseResult.error ?? 'Configuration invalide' };
-  }
-  const config = parseResult.config;
-  const validationError = validateImportedConfig(config);
-  if (validationError) {
-    return { success: false, error: validationError };
-  }
-
-  try {
-    const list = await createExerciseList(listName.trim());
-    list.config = config;
-    await saveExerciseList(list);
-    return { success: true, listId: list.id };
+    return { success: false, error: catalogResult.error ?? trainingResult.error ?? 'Format invalide' };
   } catch (error) {
-    console.error('Failed to import list:', error);
-    return { success: false, error: 'Impossible de créer la liste' };
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Import manuel impossible',
+    };
   }
 }

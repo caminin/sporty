@@ -1,5 +1,5 @@
 import { optimizeExerciseSequence, buildSessionSteps } from './session-utils';
-import { createCustomTestConfig } from './__tests__/shared/exercise-lists-helpers';
+import { createCustomTestWorkoutView } from './__tests__/shared/exercise-lists-helpers';
 
 describe('optimizeExerciseSequence', () => {
     it('should return exercises unchanged if only one exercise', () => {
@@ -71,7 +71,7 @@ describe('optimizeExerciseSequence', () => {
 
 describe('buildSessionSteps with optimized sequencing', () => {
     it('should start with a work step', () => {
-        const config = createCustomTestConfig({
+        const config = createCustomTestWorkoutView({
             'Group A': [{ id: '1', name: 'Ex1', type: 'reps' as const, value: 10 }],
             'Group B': [{ id: '2', name: 'Ex2', type: 'reps' as const, value: 10 }],
         });
@@ -80,7 +80,7 @@ describe('buildSessionSteps with optimized sequencing', () => {
     });
 
     it('should include all exercises in optimized order', () => {
-        const config = createCustomTestConfig({
+        const config = createCustomTestWorkoutView({
             'Chest': [
                 { id: '1', name: 'Push-ups', type: 'reps' as const, value: 10 },
                 { id: '3', name: 'Bench Press', type: 'reps' as const, value: 12 },
@@ -99,7 +99,7 @@ describe('buildSessionSteps with optimized sequencing', () => {
     });
 
     it('should never have consecutive rest steps', () => {
-        const config = createCustomTestConfig({
+        const config = createCustomTestWorkoutView({
             'Chest': [
                 { id: '1', name: 'Push-ups', type: 'reps' as const, value: 10 },
                 { id: '3', name: 'Bench Press', type: 'reps' as const, value: 12 },

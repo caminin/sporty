@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/copy-bundled-exercice-list.mjs && next build",
     "start": "next start",
     "lint": "eslint",
     "test": "jest"

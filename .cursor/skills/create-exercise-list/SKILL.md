@@ -1,112 +1,80 @@
 ---
 name: create-exercise-list
-description: Create new workout exercise lists in `exercice_list` with valid catalog + group reference structure.
+description: Create global catalog and training JSON files in exercice_list for Sporty.
 license: MIT
-compatibility: Expects `WorkoutConfig` with `exercises` catalog and `groups` containing references.
+compatibility: Expects split catalog.json + entrainement-*.json (exerciseRefs, no groups).
 metadata:
   author: user
-  version: "2.3"
-  generatedBy: "split-catalog-groups-io"
+  version: "3.0"
+  generatedBy: "admin-exercises-trainings"
 ---
 
-Create an exercise list that can be saved in `exercice_list/*.json` and imported by the app.
+Create or update files under `exercice_list/` for import and Docker bundle reset.
 
-**Input**: Optional description from user containing:
+**Input**: Optional description containing:
 
-- list name (required)
-- one or more **session groups** (e.g. *Explosivité jambes*, *Cardio*) — defined in JSON `groups`, not via admin UI
-- for each group: which catalog exercises to include (`refId`, `exerciseId`); default duration/reps come from the catalog
-- optional: source template (`global`, `dynamisme-jambes-mollets-core`, custom JSON)
+- training name (for `entrainement-*.json`)
+- which catalog exercises to include (`refId`, `exerciseId`)
+- optional `globalRestTime` on the training file
+- optional: extend `catalog.json` or templates `entrainement-global.json` (**Haut du corps**), `entrainement-dynamisme-jambes-mollets-core.json` (**Jambes**)
 
-Reject vague requests and ask clarifying questions first.
+Reject vague requests; ask clarifying questions first.
 
 ## What to produce
 
-### Fichier complet (`exercice_list/*.json` ou import manuel dossier)
-
-Single JSON object:
-
-- `globalRestTime`: number `>= 0`
-- `exercises`: object keyed by exercise `id` (catalog)
-- `groups`: object keyed by session group display name
-
-### Admin — deux exports/imports séparés
-
-**Catalogue** (onglet Liste d'exercices):
+### `exercice_list/catalog.json` (global, shared)
 
 ```json
 {
-  "globalRestTime": 30,
   "exercises": {
-    "ex-id": { "id", "name", "type", "value", "muscleGroup" }
-  }
-}
-```
-
-**Groupes de séance** (onglet Listes de groupes, après catalogue importé):
-
-```json
-{
-  "globalRestTime": 30,
-  "groups": {
-    "Nom affiché": {
-      "id", "name", "icon", "color", "createdAt",
-      "exercises": [{ "refId", "exerciseId", "value?" }]
+    "ex-id": {
+      "id": "ex-id",
+      "name": "Nom",
+      "type": "time",
+      "value": 30,
+      "muscleGroup": "jambes"
     }
   }
 }
 ```
 
-### Catalog entry rules
+### `exercice_list/entrainement-<slug>.json` (one training)
 
-- each entry: `{ id, name, type, value, muscleGroup }` where `type` is `time` or `reps`, `value` is positive
-- `muscleGroup` is anatomical (e.g. *Split step rapide* → `jambes`), **not** the session group name
-- allowed keys: `jambes | mollets | fessiers | dos | epaules | bras | abdos | pecs | autre`
+```json
+{
+  "name": "Nom affiché",
+  "globalRestTime": 20,
+  "exerciseRefs": [
+    { "refId": "ex-id", "exerciseId": "ex-id" }
+  ]
+}
+```
 
-### Group reference rules
+No `exercises` or `groups` keys in training files. Every `exerciseId` MUST exist in `catalog.json`.
 
-- `exercises` in a group is an array of **references**:
-  - `{ refId, exerciseId }` — omit `value` unless intentional override in JSON
-  - `refId` unique within the group
-  - every `exerciseId` **must** exist in the list catalog — import fails with an explicit error otherwise
+### Admin import (runtime)
 
-**Do not** embed `{ id, name, type, value }` directly in group `exercises` arrays (legacy format — rejected).
+- **Exercices** tab: catalog JSON (`exercises` only)
+- **Entraînements** tab: training JSON (`exerciseRefs` + optional `globalRestTime`)
 
-## Execution rules
+Legacy combined `WorkoutConfig` with `groups` is rejected.
 
-1. Ask missing details before generating output:
-   - Nom de la liste
-   - Temps de repos global
-   - Groupes de séance à créer (nom, icône, couleur)
-   - Exercices du catalogue (nom, type, valeur par défaut, **groupe musculaire**)
-   - Quels exercices dans quels groupes de séance (par `muscleGroup` si besoin)
-   - Nouvelles listes : import catalogue JSON dans l'admin (pas de formulaire « liste vide »)
+## Rules
 
-2. Use existing files as templates when user asks explicitly:
-   - `exercice_list/global.json`, `exercice_list/dynamisme-jambes-mollets-core.json`
-   - Extend only where requested; keep catalog ids and refIds unless user asks to regenerate.
+- `muscleGroup`: `jambes | mollets | epaules | bras | abdos | pecs | autre` (not `fessiers` or `dos`)
+- `type`: `time` (seconds) or `reps`
+- `value` > 0
+- `refId` unique within the training file
+- Default bundle: `catalog.json` + `entrainement-global.json` (name **Haut du corps**) + `entrainement-dynamisme-jambes-mollets-core.json` (name **Jambes**)
+- Deduplicate catalog entries; use `mollets` for calf work, `jambes` for dynamism / squats / lunges
 
-3. Generate deterministic IDs:
-   - `grp-<slug>` for session groups
-   - `ex-<slug>` for catalog exercises
-   - `refId` = `exerciseId` when a single placement per group
+## Execution
 
-4. Validate before finalizing:
-   - `exercises` map present with `muscleGroup` on every entry
-   - every group ref resolves to a catalog `exerciseId`
-   - no embedded exercises with `name` in group arrays
-   - `color` in allowed palette: `red | blue | purple | yellow | emerald | primary | orange | cyan`
+1. Confirm training name, rest time, exercise list with muscle groups.
+2. Update `catalog.json` first, then training `exerciseRefs`.
+3. Validate all refs resolve against catalog.
+4. Output JSON in fenced blocks; write files when asked.
 
-5. Output format:
-   - Return full JSON in a markdown fenced block + short validation summary
-   - If asked to write file: `exercice_list/<slug-list-name>.json` (format complet)
+## Response style
 
-6. Error handling:
-   - If input cannot map to valid structure, explain what is missing
-   - Prefer asking for minimal correction instead of inventing assumptions
-
-## Suggested response style
-
-- Short and actionable
-- Explicitly list required user confirmations when a field is missing
-- No extra design or UI prose unless requested
+Short, actionable, validation summary at the end.

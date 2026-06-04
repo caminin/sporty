@@ -4,14 +4,16 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Clock, Dumbbell } from "lucide-react";
-import type { ResolvedExercise, WorkoutConfig } from "./exercises/types";
-import { getWorkoutConfig } from "./exercises/actions";
-import { resolveGroupExercises } from "./exercises/workout-config";
+import type { ResolvedExercise, WorkoutView } from "./exercises/types";
+import { getWorkoutView } from "./exercises/actions";
+import { placementsByMuscleGroup } from "./exercises/workout-config";
 import { buildSessionSteps, encodeSession, estimateSessionDuration, formatDuration, testBuildSessionSteps } from "./session-utils";
 import { useExerciseList } from "./contexts/ExerciseListContext";
 import { ExerciseListSelector } from "./components/ExerciseListSelector";
 import { renderIconByName } from "./exercises/icons";
 import { GROUP_COLOR_STYLES, isGroupColorKey } from "./exercises/group-colors";
+import { getMuscleGroupColor } from "./exercises/muscle-groups";
+import type { MuscleGroupKey } from "./exercises/muscle-groups";
 
 const STORAGE_KEY = "sporty_session_selection";
 
@@ -19,34 +21,26 @@ const DEFAULT_STYLE = { colorClass: "bg-slate-100 text-slate-600", borderClass: 
 
 /* ─── localStorage helpers ───────────────────────────────────────────────── */
 
-function loadSelection(config: WorkoutConfig): Set<string> {
+function getAllRefIds(view: WorkoutView): Set<string> {
+    return new Set(view.exerciseRefs.map((r) => r.refId));
+}
+
+function loadSelection(view: WorkoutView): Set<string> {
     try {
         const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return getAllIds(config);
+        if (!raw) return getAllRefIds(view);
         const parsed: unknown = JSON.parse(raw);
-        if (!Array.isArray(parsed)) return getAllIds(config);
-        const allIds = getAllIds(config);
-        // Keep only IDs that still exist in the catalogue
+        if (!Array.isArray(parsed)) return getAllRefIds(view);
+        const allIds = getAllRefIds(view);
         const valid = (parsed as string[]).filter((id) => allIds.has(id));
         return new Set(valid);
     } catch {
-        return getAllIds(config);
+        return getAllRefIds(view);
     }
 }
 
-function getAllIds(config: WorkoutConfig): Set<string> {
-    const ids = new Set<string>();
-    for (const groupName of Object.keys(config.groups)) {
-        for (const ex of resolveGroupExercises(config, groupName)) {
-            ids.add(ex.refId);
-        }
-    }
-    return ids;
-}
-
-function saveSelection(selectedIds: Set<string>, config: WorkoutConfig) {
-    // Only persist IDs that exist in the current catalogue (clean up stale IDs)
-    const allIds = getAllIds(config);
+function saveSelection(selectedIds: Set<string>, view: WorkoutView) {
+    const allIds = getAllRefIds(view);
     const toSave = [...selectedIds].filter((id) => allIds.has(id));
     localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
 }
@@ -135,7 +129,7 @@ function ExerciseGroupBlock({
                         <Dumbbell className="w-5 h-5" />
                     )}
                 </div>
-                <h3 className="font-bold text-slate-900 dark:text-white">{groupName}</h3>
+                <h3 className={`font-bold ${isCustom ? "" : "text-inherit"}`}>{groupName}</h3>
                 <span className="ml-auto text-xs font-medium text-slate-400 dark:text-text-muted-dark">
                     {selectedCount}/{exercises.length}
                 </span>
@@ -193,34 +187,24 @@ function ExerciseGroupBlock({
 }
 
 function FloatingActionButton({
-    config,
+    view,
     selectedIds,
 }: {
-    config: WorkoutConfig | null;
+    view: WorkoutView | null;
     selectedIds: Set<string>;
 }) {
     const router = useRouter();
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
     const handleLaunch = () => {
-        if (!config) return;
+        if (!view) return;
 
-        // Build a filtered config with only selected exercises
-        const filteredGroups: WorkoutConfig["groups"] = {};
-        for (const [groupName, group] of Object.entries(config.groups)) {
-            const selected = group.exercises.filter((ref) => selectedIds.has(ref.refId));
-            if (selected.length > 0) {
-                filteredGroups[groupName] = { ...group, exercises: selected };
-            }
-        }
-        const filteredConfig: WorkoutConfig = { ...config, groups: filteredGroups };
+        const filteredView: WorkoutView = {
+            ...view,
+            exerciseRefs: view.exerciseRefs.filter((ref) => selectedIds.has(ref.refId)),
+        };
 
-        console.log("Debug: filteredConfig", filteredConfig);
-        console.log("Debug: selectedIds", Array.from(selectedIds));
-        console.log("Debug: config.groups keys", Object.keys(config.groups));
-
-        const steps = buildSessionSteps(filteredConfig);
-        console.log("Debug: steps", steps);
+        const steps = buildSessionSteps(filteredView);
 
         if (steps.length === 0) {
             setErrorMsg("Aucun exercice sélectionné ! Cochez des exercices avant de lancer la séance.");
@@ -248,7 +232,7 @@ function FloatingActionButton({
             )}
             <button
                 onClick={handleLaunch}
-                disabled={!config}
+                disabled={!view}
                 id="launch-session-btn"
                 className="w-full flex items-center justify-center gap-3 rounded-2xl bg-primary px-6 py-4 text-lg font-bold text-background-dark shadow-lg shadow-primary/25 transition-transform active:scale-95 hover:brightness-110 disabled:opacity-50"
             >
@@ -262,57 +246,59 @@ function FloatingActionButton({
 /* ─── Main page ──────────────────────────────────────────────────────────── */
 
 export default function BadmintonSessionPage() {
-    const [config, setConfig] = useState<WorkoutConfig | null>(null);
+    const [view, setView] = useState<WorkoutView | null>(null);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const { selectedListId, setSelectedListId } = useExerciseList();
 
     useEffect(() => {
-        // Test buildSessionSteps function
         testBuildSessionSteps();
-
-        loadWorkoutConfig();
+        loadWorkoutView();
     }, [selectedListId]);
 
-    const loadWorkoutConfig = async () => {
+    const loadWorkoutView = async () => {
         if (!selectedListId) {
-            setConfig(null);
+            setView(null);
             setSelectedIds(new Set());
             return;
         }
 
         try {
-            const cfg = await getWorkoutConfig(selectedListId);
-            setConfig(cfg);
+            const cfg = await getWorkoutView(selectedListId);
+            setView(cfg);
             setSelectedIds(loadSelection(cfg));
         } catch (error) {
-            console.error('Failed to load workout config:', error);
-            setConfig(null);
+            console.error('Failed to load workout view:', error);
+            setView(null);
         }
     };
 
-    const handleToggle = (exerciseId: string) => {
-        if (!config) return;
+    const handleToggle = (refId: string) => {
+        if (!view) return;
         setSelectedIds((prev) => {
             const next = new Set(prev);
-            if (next.has(exerciseId)) {
-                next.delete(exerciseId);
+            if (next.has(refId)) {
+                next.delete(refId);
             } else {
-                next.add(exerciseId);
+                next.add(refId);
             }
-            saveSelection(next, config);
+            saveSelection(next, view);
             return next;
         });
     };
 
-    // Count only selected exercises for the summary
-    const totalSelected = config
-        ? Object.values(config.groups).reduce(
-            (sum, group) => sum + group.exercises.filter((ref) => selectedIds.has(ref.refId)).length,
-            0
-        )
+    const totalSelected = view
+        ? view.exerciseRefs.filter((ref) => selectedIds.has(ref.refId)).length
         : 0;
 
-    const estimatedSeconds = config ? estimateSessionDuration(config, selectedIds) : 0;
+    const estimatedSeconds = view ? estimateSessionDuration(view, selectedIds) : 0;
+
+    const muscleSections =
+        view && view.exerciseRefs.length > 0
+            ? placementsByMuscleGroup(
+                  { exercises: view.exercises },
+                  view.exerciseRefs
+              )
+            : [];
 
     return (
         <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-text-main-dark antialiased">
@@ -330,7 +316,7 @@ export default function BadmintonSessionPage() {
 
                     <section className="rounded-2xl bg-white dark:bg-surface-dark p-6 shadow-md ring-1 ring-black/5 dark:ring-white/5">
                         <SessionSummary
-                            restTime={config?.globalRestTime ?? 30}
+                            restTime={view?.globalRestTime ?? 30}
                             totalExercises={totalSelected}
                             estimatedSeconds={estimatedSeconds}
                         />
@@ -341,19 +327,19 @@ export default function BadmintonSessionPage() {
                         {!selectedListId && (
                             <div className="flex flex-col items-center gap-3 rounded-2xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 px-4 py-6 text-center text-sm text-amber-700 dark:text-amber-200">
                                 <span className="material-symbols-outlined text-2xl">info</span>
-                                <p className="font-semibold">Aucune liste d'exercices sélectionnée</p>
-                                <p className="text-xs text-amber-600 dark:text-amber-300/90">Choisissez une liste dans le sélecteur ci-dessus pour afficher votre programme.</p>
+                                <p className="font-semibold">Aucun entraînement sélectionné</p>
+                                <p className="text-xs text-amber-600 dark:text-amber-300/90">Choisissez un entraînement dans le sélecteur ci-dessus.</p>
                             </div>
                         )}
 
                         <div className="mb-4 flex items-center justify-between">
                             <h2 className="text-lg font-bold">Séquence du jour</h2>
                             <span className="text-sm font-medium text-slate-500 dark:text-text-muted-dark">
-                                {config ? Object.keys(config.groups).length : 0} groupes
+                                {muscleSections.length} groupes musculaires
                             </span>
                         </div>
 
-                        {!config ? (
+                        {!view ? (
                             <div className="flex items-center justify-center py-16 text-slate-400">
                                 <div className="flex flex-col items-center gap-3">
                                     <div className="w-8 h-8 border-2 border-slate-300 dark:border-white/20 border-t-primary rounded-full animate-spin" />
@@ -362,16 +348,15 @@ export default function BadmintonSessionPage() {
                             </div>
                         ) : (
                             <div className="flex flex-col gap-4">
-                                {Object.entries(config.groups).map(([groupName, group]) => (
+                                {muscleSections.map(({ meta, placements }) => (
                                     <ExerciseGroupBlock
-                                        key={groupName}
-                                        groupName={groupName}
-                                        exercises={resolveGroupExercises(config, groupName)}
+                                        key={meta.key}
+                                        groupName={meta.label}
+                                        exercises={placements.map((p) => p.resolved)}
                                         selectedIds={selectedIds}
                                         onToggle={handleToggle}
-                                        isCustom={group.id.startsWith("custom_")}
-                                        icon={group.icon}
-                                        color={group.color}
+                                        icon={meta.icon}
+                                        color={getMuscleGroupColor(meta.key as MuscleGroupKey)}
                                     />
                                 ))}
                             </div>
@@ -379,7 +364,7 @@ export default function BadmintonSessionPage() {
                     </section>
                 </main>
 
-                <FloatingActionButton config={config} selectedIds={selectedIds} />
+                <FloatingActionButton view={view} selectedIds={selectedIds} />
             </div>
         </div>
     );

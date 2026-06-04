@@ -1,23 +1,22 @@
 import type {
     ExerciseDefinition,
-    Group,
+    GlobalCatalog,
     GroupExerciseRef,
     ResolvedExercise,
-    WorkoutConfig,
+    Training,
+    WorkoutView,
 } from "./types";
-import { isGroupColorKey } from "./group-colors";
 import {
-    DEFAULT_MUSCLE_GROUP,
-    isMuscleGroupKey,
     MUSCLE_GROUPS,
+    normalizeMuscleGroup,
     type MuscleGroupKey,
     type MuscleGroupMeta,
 } from "./muscle-groups";
 
-export const LEGACY_FORMAT_ERROR =
-    'Format invalide : le JSON doit contenir "exercises" (catalogue) et des références { refId, exerciseId } dans chaque groupe (pas d\'exercices embarqués avec "name").';
+export const INVALID_JSON_SHAPE =
+    'Format invalide : attendu catalogue { "exercises" } ou entraînement { "exerciseRefs" }.';
 
-function isEmbeddedGroupExercise(item: unknown): boolean {
+function isEmbeddedExercise(item: unknown): boolean {
     if (!item || typeof item !== "object") return false;
     const o = item as Record<string, unknown>;
     return typeof o.name === "string" && !("exerciseId" in o);
@@ -34,19 +33,9 @@ export function normalizeExerciseDefinition(
     if (d.type !== "time" && d.type !== "reps") return null;
     if (typeof d.value !== "number" || d.value <= 0) return null;
 
-    const rawGroup = d.muscleGroup;
-    const muscleGroup: MuscleGroupKey =
-        typeof rawGroup === "string" && isMuscleGroupKey(rawGroup)
-            ? rawGroup
-            : DEFAULT_MUSCLE_GROUP;
+    const muscleGroup = normalizeMuscleGroup(d.muscleGroup);
 
-    return {
-        id,
-        name: d.name,
-        type: d.type,
-        value: d.value,
-        muscleGroup,
-    };
+    return { id, name: d.name, type: d.type, value: d.value, muscleGroup };
 }
 
 export function normalizeCatalog(
@@ -64,130 +53,19 @@ export function normalizeCatalog(
     return catalog;
 }
 
-export function validateExerciseDefinition(def: unknown): def is ExerciseDefinition {
-    return normalizeExerciseDefinition(def) !== null;
-}
-
-export function validateCatalog(exercises: unknown): exercises is Record<string, ExerciseDefinition> {
-    return normalizeCatalog(exercises) !== null;
-}
-
 export function validateGroupRef(
     ref: unknown,
-    catalog: Record<string, ExerciseDefinition>,
-    groupName: string
+    catalog: Record<string, ExerciseDefinition>
 ): ref is GroupExerciseRef {
     if (!ref || typeof ref !== "object") return false;
     const r = ref as GroupExerciseRef;
-    if (typeof r.refId !== "string" || typeof r.exerciseId !== "string") {
-        return false;
-    }
-    if (isEmbeddedGroupExercise(ref)) {
-        return false;
-    }
-    if (!catalog[r.exerciseId]) {
-        console.warn(`Groupe '${groupName}' : exerciseId '${r.exerciseId}' absent du catalogue`);
-        return false;
-    }
+    if (typeof r.refId !== "string" || typeof r.exerciseId !== "string") return false;
+    if (isEmbeddedExercise(ref)) return false;
+    if (!catalog[r.exerciseId]) return false;
     if (r.value !== undefined && (typeof r.value !== "number" || r.value <= 0)) {
         return false;
     }
     return true;
-}
-
-export function validateGroup(
-    group: unknown,
-    groupName: string,
-    catalog?: Record<string, ExerciseDefinition>
-): boolean {
-    if (typeof group !== "object" || group === null) return false;
-    const g = group as Group;
-    if (
-        typeof g.id !== "string" ||
-        typeof g.name !== "string" ||
-        typeof g.icon !== "string" ||
-        !isGroupColorKey(g.color) ||
-        typeof g.createdAt !== "string" ||
-        !Array.isArray(g.exercises)
-    ) {
-        return false;
-    }
-    if (g.exercises.some(isEmbeddedGroupExercise)) {
-        return false;
-    }
-    if (catalog) {
-        return g.exercises.every((ref) => validateGroupRef(ref, catalog, groupName));
-    }
-    return g.exercises.every(
-        (ref) =>
-            typeof ref === "object" &&
-            ref !== null &&
-            typeof (ref as GroupExerciseRef).refId === "string" &&
-            typeof (ref as GroupExerciseRef).exerciseId === "string"
-    );
-}
-
-export function detectLegacyConfig(raw: unknown): string | null {
-    const c = raw as Record<string, unknown>;
-    if (!c || typeof c !== "object") {
-        return "Configuration invalide";
-    }
-    if (!c.exercises || typeof c.exercises !== "object" || Array.isArray(c.exercises)) {
-        return LEGACY_FORMAT_ERROR;
-    }
-    const groups = c.groups as Record<string, unknown> | undefined;
-    if (!groups || typeof groups !== "object") {
-        return "Structure des groupes incorrecte";
-    }
-    for (const [groupName, group] of Object.entries(groups)) {
-        if (!group || typeof group !== "object") continue;
-        const exercises = (group as Group).exercises;
-        if (Array.isArray(exercises) && exercises.some(isEmbeddedGroupExercise)) {
-            return LEGACY_FORMAT_ERROR;
-        }
-    }
-    return null;
-}
-
-export function parseWorkoutConfig(raw: unknown): { config?: WorkoutConfig; error?: string } {
-    const legacyError = detectLegacyConfig(raw);
-    if (legacyError) {
-        return { error: legacyError };
-    }
-
-    const c = raw as WorkoutConfig;
-    if (typeof c.globalRestTime !== "number" || c.globalRestTime < 0) {
-        return { error: "globalRestTime invalide (doit être un nombre >= 0)" };
-    }
-    const catalog = normalizeCatalog(c.exercises);
-    if (!catalog) {
-        return { error: "Catalogue exercises invalide" };
-    }
-    if (!c.groups || typeof c.groups !== "object") {
-        return { error: "Structure des groupes incorrecte" };
-    }
-    for (const [groupName, group] of Object.entries(c.groups)) {
-        if (!validateGroup(group, groupName, catalog)) {
-            return { error: `Groupe '${groupName}' invalide ou références orphelines` };
-        }
-    }
-
-    return {
-        config: {
-            globalRestTime: c.globalRestTime,
-            exercises: catalog,
-            groups: c.groups,
-        },
-    };
-}
-
-/** @deprecated Use parseWorkoutConfig — throws on invalid format */
-export function migrateWorkoutConfig(config: unknown): WorkoutConfig {
-    const result = parseWorkoutConfig(config);
-    if (result.error || !result.config) {
-        throw new Error(result.error ?? LEGACY_FORMAT_ERROR);
-    }
-    return result.config;
 }
 
 export function getEffectiveValue(
@@ -209,426 +87,258 @@ export function resolveRef(
         name: def.name,
         type: def.type,
         value: getEffectiveValue(def, ref),
+        muscleGroup: def.muscleGroup,
     };
 }
 
-export function resolveGroupExercises(
-    config: WorkoutConfig,
-    groupName: string
+export function buildWorkoutView(
+    catalog: GlobalCatalog,
+    training: Training
+): WorkoutView {
+    return {
+        globalRestTime: training.globalRestTime,
+        exercises: catalog.exercises,
+        exerciseRefs: training.exerciseRefs.map((r) => ({ ...r })),
+    };
+}
+
+export function resolveTrainingExercises(
+    catalog: GlobalCatalog,
+    training: Training,
+    selectedRefIds?: Set<string>
 ): ResolvedExercise[] {
-    const group = config.groups[groupName];
-    if (!group) return [];
     const resolved: ResolvedExercise[] = [];
-    for (const ref of group.exercises) {
-        const ex = resolveRef(config.exercises, ref);
+    for (const ref of training.exerciseRefs) {
+        if (selectedRefIds && !selectedRefIds.has(ref.refId)) continue;
+        const ex = resolveRef(catalog.exercises, ref);
         if (ex) resolved.push(ex);
     }
     return resolved;
 }
 
-export type GroupPlacementRow = {
+export type PlacementRow = {
     ref: GroupExerciseRef;
     resolved: ResolvedExercise;
 };
 
-export type GroupPlacementsByMuscleSection = {
+export type PlacementsByMuscleSection = {
     meta: MuscleGroupMeta;
-    placements: GroupPlacementRow[];
+    placements: PlacementRow[];
 };
 
-/** Session group exercises grouped by catalog muscleGroup (MUSCLE_GROUPS order). */
-export function groupPlacementsByMuscleGroup(
-    config: WorkoutConfig,
-    groupName: string
-): GroupPlacementsByMuscleSection[] {
-    const group = config.groups[groupName];
-    if (!group) return [];
+export type PlacementsByMuscleGroupOptions = {
+    includeEmpty?: boolean;
+};
 
-    const byMuscle = new Map<MuscleGroupKey, GroupPlacementRow[]>();
+export function placementsByMuscleGroup(
+    catalog: GlobalCatalog,
+    refs: GroupExerciseRef[],
+    options: PlacementsByMuscleGroupOptions = {}
+): PlacementsByMuscleSection[] {
+    const { includeEmpty = false } = options;
+    const byMuscle = new Map<MuscleGroupKey, PlacementRow[]>();
     for (const meta of MUSCLE_GROUPS) {
         byMuscle.set(meta.key, []);
     }
 
-    for (const ref of group.exercises) {
-        const resolved = resolveRef(config.exercises, ref);
+    for (const ref of refs) {
+        const resolved = resolveRef(catalog.exercises, ref);
         if (!resolved) continue;
-        const def = config.exercises[ref.exerciseId];
-        const muscleGroup = def?.muscleGroup ?? DEFAULT_MUSCLE_GROUP;
-        const list = byMuscle.get(muscleGroup) ?? byMuscle.get("autre")!;
+        const list = byMuscle.get(resolved.muscleGroup) ?? byMuscle.get("autre")!;
         list.push({ ref, resolved });
     }
 
-    const catalogMuscleGroups = new Set<MuscleGroupKey>();
-    for (const def of Object.values(config.exercises)) {
-        catalogMuscleGroups.add(def.muscleGroup);
-    }
-
-    return MUSCLE_GROUPS.filter(
-        (meta) => (byMuscle.get(meta.key)?.length ?? 0) > 0 || catalogMuscleGroups.has(meta.key)
-    ).map((meta) => ({
-        meta,
-        placements: (byMuscle.get(meta.key) ?? []).sort((a, b) =>
-            a.resolved.name.localeCompare(b.resolved.name, "fr")
-        ),
-    }));
+    return MUSCLE_GROUPS.filter((meta) => includeEmpty || (byMuscle.get(meta.key)?.length ?? 0) > 0).map(
+        (meta) => ({
+            meta,
+            placements: (byMuscle.get(meta.key) ?? []).sort((a, b) =>
+                a.resolved.name.localeCompare(b.resolved.name, "fr")
+            ),
+        })
+    );
 }
 
-export function resolveAllPlacements(config: WorkoutConfig): ResolvedExercise[] {
-    const all: ResolvedExercise[] = [];
-    for (const groupName of Object.keys(config.groups)) {
-        all.push(...resolveGroupExercises(config, groupName));
-    }
-    return all;
+export function getCatalogExerciseIdsUsedInTraining(
+    training: Training
+): Set<string> {
+    return new Set(training.exerciseRefs.map((r) => r.exerciseId));
 }
 
-export function getCatalogExerciseIdsUsedInGroups(config: WorkoutConfig): Map<string, string[]> {
+export function getCatalogExerciseIdsUsedInTrainings(
+    trainings: Training[]
+): Map<string, string[]> {
     const usage = new Map<string, string[]>();
-    for (const [groupName, group] of Object.entries(config.groups)) {
-        for (const ref of group.exercises) {
+    for (const training of trainings) {
+        for (const ref of training.exerciseRefs) {
             const list = usage.get(ref.exerciseId) ?? [];
-            list.push(groupName);
+            list.push(training.name);
             usage.set(ref.exerciseId, list);
         }
     }
     return usage;
 }
 
-export function validateWorkoutConfig(config: WorkoutConfig): string | null {
-    return parseWorkoutConfig(config).error ?? null;
-}
-
 export type CatalogImportPayload = {
     exercises: Record<string, ExerciseDefinition>;
-    globalRestTime?: number;
 };
 
-export type GroupsImportPayload = {
-    groups: Record<string, Group>;
-    globalRestTime?: number;
+export type TrainingImportPayload = {
+    name?: string;
+    globalRestTime: number;
+    exerciseRefs: GroupExerciseRef[];
 };
 
-export type OrphanGroupReference = {
-    groupKey: string;
-    groupDisplayName: string;
+export type OrphanTrainingReference = {
     exerciseId: string;
 };
 
-export function collectOrphanGroupReferences(config: WorkoutConfig): OrphanGroupReference[] {
-    const orphans: OrphanGroupReference[] = [];
-    for (const [groupKey, group] of Object.entries(config.groups)) {
-        for (const ref of group.exercises) {
-            if (!config.exercises[ref.exerciseId]) {
-                orphans.push({
-                    groupKey,
-                    groupDisplayName: group.name,
-                    exerciseId: ref.exerciseId,
-                });
-            }
-        }
-    }
-    return orphans;
+export function collectOrphanTrainingReferences(
+    catalog: GlobalCatalog,
+    refs: GroupExerciseRef[]
+): OrphanTrainingReference[] {
+    return refs
+        .filter((r) => !catalog.exercises[r.exerciseId])
+        .map((r) => ({ exerciseId: r.exerciseId }));
 }
 
-export function formatOrphanReferencesError(orphans: OrphanGroupReference[]): string {
+export function formatOrphanTrainingReferencesError(
+    orphans: OrphanTrainingReference[]
+): string {
     if (orphans.length === 0) return "";
-    if (orphans.length === 1) {
-        const o = orphans[0];
-        return `Le groupe « ${o.groupDisplayName} » référence l'exercice « ${o.exerciseId} » qui n'existe pas dans le catalogue.`;
+    const ids = [...new Set(orphans.map((o) => o.exerciseId))];
+    if (ids.length === 1) {
+        return `L'exercice « ${ids[0]} » n'existe pas dans le catalogue global.`;
     }
-    const lines = orphans.map(
-        (o) =>
-            `• « ${o.groupDisplayName} » → exercice « ${o.exerciseId} » absent du catalogue`
-    );
-    return `Références invalides dans les groupes :\n${lines.join("\n")}`;
+    return `Exercices absents du catalogue : ${ids.map((id) => `« ${id} »`).join(", ")}`;
 }
 
-export function parseCatalogJson(raw: unknown): { payload?: CatalogImportPayload; error?: string } {
+export function parseCatalogJson(raw: unknown): {
+    payload?: CatalogImportPayload;
+    error?: string;
+} {
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-        return { error: "Le JSON catalogue doit être un objet avec une clé « exercises »." };
+        return { error: 'Format catalogue invalide : objet avec clé « exercises » requis.' };
     }
     const o = raw as Record<string, unknown>;
+    if ("groups" in o || "exerciseRefs" in o) {
+        return { error: INVALID_JSON_SHAPE };
+    }
     if (!o.exercises) {
         return { error: 'Format catalogue invalide : clé « exercises » requise.' };
     }
     const catalog = normalizeCatalog(o.exercises);
     if (!catalog) {
-        return { error: "Catalogue « exercises » invalide (id, name, type, value requis)." };
+        return { error: "Catalogue « exercises » invalide." };
     }
-    let globalRestTime: number | undefined;
-    if (o.globalRestTime !== undefined) {
-        if (typeof o.globalRestTime !== "number" || o.globalRestTime < 0) {
-            return { error: "globalRestTime invalide (nombre >= 0)." };
-        }
-        globalRestTime = o.globalRestTime;
-    }
-    return { payload: { exercises: catalog, globalRestTime } };
+    return { payload: { exercises: catalog } };
 }
 
-export function parseGroupsJson(raw: unknown): { payload?: GroupsImportPayload; error?: string } {
+export function parseTrainingJson(raw: unknown): {
+    payload?: TrainingImportPayload;
+    error?: string;
+} {
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-        return { error: "Le JSON groupes doit être un objet avec une clé « groups »." };
+        return { error: 'Format entraînement invalide : objet avec « exerciseRefs » requis.' };
     }
     const o = raw as Record<string, unknown>;
-    if (!o.groups || typeof o.groups !== "object" || Array.isArray(o.groups)) {
-        return { error: 'Format groupes invalide : clé « groups » requise.' };
+    if ("groups" in o || "exercises" in o) {
+        return { error: INVALID_JSON_SHAPE };
     }
-    const groups = o.groups as Record<string, Group>;
-    for (const [groupName, group] of Object.entries(groups)) {
-        if (!validateGroup(group, groupName)) {
-            if (group?.exercises?.some(isEmbeddedGroupExercise)) {
-                return { error: LEGACY_FORMAT_ERROR };
-            }
-            return { error: `Groupe « ${groupName} » invalide (structure ou références mal formées).` };
-        }
+    if (!Array.isArray(o.exerciseRefs)) {
+        return { error: 'Format entraînement invalide : « exerciseRefs » doit être un tableau.' };
     }
-    let globalRestTime: number | undefined;
+    if (o.exerciseRefs.some(isEmbeddedExercise)) {
+        return { error: INVALID_JSON_SHAPE };
+    }
+
+    let globalRestTime = 30;
     if (o.globalRestTime !== undefined) {
         if (typeof o.globalRestTime !== "number" || o.globalRestTime < 0) {
             return { error: "globalRestTime invalide (nombre >= 0)." };
         }
         globalRestTime = o.globalRestTime;
     }
-    return { payload: { groups, globalRestTime } };
+
+    const name = typeof o.name === "string" ? o.name : undefined;
+    const exerciseRefs: GroupExerciseRef[] = [];
+    for (const item of o.exerciseRefs) {
+        if (!item || typeof item !== "object") {
+            return { error: "Référence exercice invalide dans exerciseRefs." };
+        }
+        const r = item as GroupExerciseRef;
+        if (typeof r.refId !== "string" || typeof r.exerciseId !== "string") {
+            return { error: "Chaque référence doit avoir refId et exerciseId." };
+        }
+        exerciseRefs.push({
+            refId: r.refId,
+            exerciseId: r.exerciseId,
+            ...(r.value !== undefined && r.value > 0 ? { value: r.value } : {}),
+        });
+    }
+
+    return {
+        payload: { name, globalRestTime, exerciseRefs },
+    };
 }
 
-export function applyCatalogImport(
-    local: WorkoutConfig,
+export function validateTrainingRefsAgainstCatalog(
+    catalog: GlobalCatalog,
+    refs: GroupExerciseRef[]
+): string | null {
+    const orphans = collectOrphanTrainingReferences(catalog, refs);
+    if (orphans.length > 0) {
+        return formatOrphanTrainingReferencesError(orphans);
+    }
+    for (const ref of refs) {
+        if (!validateGroupRef(ref, catalog.exercises)) {
+            return "Référence exercice invalide.";
+        }
+    }
+    return null;
+}
+
+export function applyGlobalCatalogImport(
+    local: GlobalCatalog,
     imported: CatalogImportPayload,
     replaceAll: boolean
-): WorkoutConfig {
+): GlobalCatalog {
     const exercises: Record<string, ExerciseDefinition> = replaceAll
         ? {}
         : { ...local.exercises };
 
-    for (const [, def] of Object.entries(imported.exercises)) {
+    for (const def of Object.values(imported.exercises)) {
         exercises[def.id] = { ...def };
     }
-
-    const result: WorkoutConfig = {
-        globalRestTime: imported.globalRestTime ?? local.globalRestTime,
-        exercises,
-        groups: Object.fromEntries(
-            Object.entries(local.groups).map(([key, group]) => [
-                key,
-                { ...group, exercises: group.exercises.map((r) => ({ ...r })) },
-            ])
-        ),
-    };
-
-    const orphans = collectOrphanGroupReferences(result);
-    if (orphans.length > 0) {
-        throw new Error(formatOrphanReferencesError(orphans));
-    }
-
-    const validationError = validateWorkoutConfig(result);
-    if (validationError) {
-        throw new Error(validationError);
-    }
-
-    return result;
+    return { exercises };
 }
 
-export function mergeImportedGroups(
-    local: WorkoutConfig,
-    importedGroups: Record<string, Group>,
-    importedGlobalRestTime?: number
-): WorkoutConfig {
-    const catalog = local.exercises;
+export function applyTrainingImport(
+    local: Training,
+    payload: TrainingImportPayload,
+    replaceRefs: boolean
+): Training {
+    const exerciseRefs = replaceRefs
+        ? payload.exerciseRefs.map((r) => ({ ...r }))
+        : [...local.exerciseRefs, ...payload.exerciseRefs.map((r) => ({ ...r }))];
 
-    for (const [importKey, importGroup] of Object.entries(importedGroups)) {
-        if (!validateGroup(importGroup, importKey)) {
-            if (importGroup.exercises?.some(isEmbeddedGroupExercise)) {
-                throw new Error(LEGACY_FORMAT_ERROR);
-            }
-            throw new Error(`Groupe « ${importGroup.name || importKey} » invalide.`);
-        }
-        for (const ref of importGroup.exercises) {
-            if (!catalog[ref.exerciseId]) {
-                throw new Error(
-                    formatOrphanReferencesError([
-                        {
-                            groupKey: importKey,
-                            groupDisplayName: importGroup.name,
-                            exerciseId: ref.exerciseId,
-                        },
-                    ])
-                );
-            }
-        }
-    }
-
-    const mergedGroups: Record<string, Group> = {};
-
-    for (const [key, group] of Object.entries(local.groups)) {
-        mergedGroups[key] = {
-            ...group,
-            exercises: group.exercises.map((r) => ({ ...r })),
-        };
-    }
-
-    for (const [importKey, importGroup] of Object.entries(importedGroups)) {
-        const existingById = Object.entries(mergedGroups).find(
-            ([, g]) => g.id === importGroup.id
-        );
-
-        if (!existingById) {
-            let recordKey = importKey;
-            if (mergedGroups[recordKey]) {
-                recordKey = `${importKey} (import)`;
-            }
-            mergedGroups[recordKey] = {
-                ...importGroup,
-                exercises: importGroup.exercises.map((r) => ({ ...r })),
-            };
-            continue;
-        }
-
-        const [existingKey, existingGroup] = existingById;
-        const refById = new Map(existingGroup.exercises.map((r) => [r.refId, r]));
-
-        for (const importRef of importGroup.exercises) {
-            const existing = refById.get(importRef.refId);
-            if (existing) {
-                existing.value = importRef.value;
-            } else {
-                existingGroup.exercises.push({ ...importRef });
-            }
-        }
-
-        mergedGroups[existingKey] = existingGroup;
-    }
-
-    const result: WorkoutConfig = {
-        globalRestTime: importedGlobalRestTime ?? local.globalRestTime,
-        exercises: { ...local.exercises },
-        groups: mergedGroups,
+    return {
+        ...local,
+        name: payload.name ?? local.name,
+        globalRestTime: payload.globalRestTime,
+        exerciseRefs,
     };
-
-    const validationError = validateWorkoutConfig(result);
-    if (validationError) {
-        throw new Error(validationError);
-    }
-
-    return result;
 }
 
-export function mergeImportedConfig(
-    local: WorkoutConfig,
-    imported: WorkoutConfig
-): WorkoutConfig {
-    const mergedCatalog: Record<string, ExerciseDefinition> = { ...local.exercises };
-
-    for (const [id, def] of Object.entries(imported.exercises)) {
-        mergedCatalog[id] = { ...def };
-    }
-
-    const mergedGroups: Record<string, Group> = {};
-
-    for (const [key, group] of Object.entries(local.groups)) {
-        mergedGroups[key] = {
-            ...group,
-            exercises: group.exercises.map((r) => ({ ...r })),
-        };
-    }
-
-    for (const [importKey, importGroup] of Object.entries(imported.groups)) {
-        const existingById = Object.entries(mergedGroups).find(
-            ([, g]) => g.id === importGroup.id
-        );
-
-        if (!existingById) {
-            let recordKey = importKey;
-            if (mergedGroups[recordKey]) {
-                recordKey = `${importKey} (import)`;
-            }
-            for (const ref of importGroup.exercises) {
-                if (!mergedCatalog[ref.exerciseId]) {
-                    throw new Error(
-                        formatOrphanReferencesError([
-                            {
-                                groupKey: importKey,
-                                groupDisplayName: importGroup.name,
-                                exerciseId: ref.exerciseId,
-                            },
-                        ])
-                    );
-                }
-            }
-            mergedGroups[recordKey] = {
-                ...importGroup,
-                exercises: importGroup.exercises.map((r) => ({ ...r })),
-            };
-            continue;
-        }
-
-        const [existingKey, existingGroup] = existingById;
-        const refById = new Map(existingGroup.exercises.map((r) => [r.refId, r]));
-
-        for (const importRef of importGroup.exercises) {
-            if (!mergedCatalog[importRef.exerciseId]) {
-                throw new Error(
-                    formatOrphanReferencesError([
-                        {
-                            groupKey: importKey,
-                            groupDisplayName: importGroup.name,
-                            exerciseId: importRef.exerciseId,
-                        },
-                    ])
-                );
-            }
-            const existing = refById.get(importRef.refId);
-            if (existing) {
-                existing.value = importRef.value;
-            } else {
-                existingGroup.exercises.push({ ...importRef });
-            }
-        }
-
-        mergedGroups[existingKey] = existingGroup;
-    }
-
-    const result: WorkoutConfig = {
-        globalRestTime: imported.globalRestTime ?? local.globalRestTime,
-        exercises: mergedCatalog,
-        groups: mergedGroups,
-    };
-
-    const validationError = validateWorkoutConfig(result);
-    if (validationError) {
-        throw new Error(validationError);
-    }
-
-    return result;
+export function exportCatalogToJson(catalog: GlobalCatalog): string {
+    return JSON.stringify({ exercises: catalog.exercises }, null, 2);
 }
 
-export function exportCatalogToJson(config: WorkoutConfig): string {
+export function exportTrainingToJson(training: Training): string {
     return JSON.stringify(
         {
-            globalRestTime: config.globalRestTime,
-            exercises: config.exercises,
-        },
-        null,
-        2
-    );
-}
-
-export function exportGroupsToJson(config: WorkoutConfig): string {
-    return JSON.stringify(
-        {
-            globalRestTime: config.globalRestTime,
-            groups: config.groups,
-        },
-        null,
-        2
-    );
-}
-
-export function exportWorkoutConfigToJson(config: WorkoutConfig): string {
-    return JSON.stringify(
-        {
-            globalRestTime: config.globalRestTime,
-            exercises: config.exercises,
-            groups: config.groups,
+            name: training.name,
+            globalRestTime: training.globalRestTime,
+            exerciseRefs: training.exerciseRefs,
         },
         null,
         2

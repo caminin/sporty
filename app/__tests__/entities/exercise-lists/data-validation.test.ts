@@ -1,37 +1,46 @@
-import { createExerciseList, saveExerciseList, loadExerciseList } from '../../../exercises/lists';
+import { saveTraining, loadTraining } from '../../../exercises/lists';
+import { getWorkoutView } from '../../../exercises/actions';
 import { tempFilesystemSetup, createTrackedExerciseList } from '../../shared/test-helpers';
-import { createCustomTestConfig } from '../../shared/exercise-lists-helpers';
+import {
+  createCustomTestWorkoutView,
+  persistTestCatalogAndTraining,
+} from '../../shared/exercise-lists-helpers';
+import type { Training, WorkoutView } from '../../../exercises/types';
 
-// Setup et cleanup Jest pour chaque test
+async function saveTrainingWithView(training: Training, view: WorkoutView): Promise<void> {
+  training.globalRestTime = view.globalRestTime;
+  training.exerciseRefs = view.exerciseRefs.map((r) => ({ ...r }));
+  await persistTestCatalogAndTraining(training, { exercises: view.exercises });
+}
+
 beforeEach(tempFilesystemSetup.beforeEach);
 afterEach(tempFilesystemSetup.afterEach);
 afterAll(tempFilesystemSetup.afterAll);
 
-describe('Exercise Lists - Data Validation', () => {
+describe('Trainings - Data Validation', () => {
   describe('Exercise Data Integrity', () => {
     it('should handle exercises with all required fields', async () => {
-      const list = await createTrackedExerciseList('Validation Test');
+      const training = await createTrackedExerciseList('Validation Test');
 
       const validExercises = [
         { id: 'ex1', name: 'Push-ups', type: 'reps' as const, value: 10 },
         { id: 'ex2', name: 'Plank', type: 'time' as const, value: 30 },
-        { id: 'ex3', name: 'Running', type: 'reps' as const, value: 100 }
+        { id: 'ex3', name: 'Running', type: 'reps' as const, value: 100 },
       ];
 
-      list.config = createCustomTestConfig({
-        'Valid Exercises': validExercises
-      });
+      await saveTrainingWithView(
+        training,
+        createCustomTestWorkoutView({ Valid: validExercises })
+      );
 
-      await saveExerciseList(list);
+      const loaded = await loadTraining(training.id);
+      const workout = await getWorkoutView(training.id);
 
-      const loaded = await loadExerciseList(list.id);
-      const loadedExercises = loaded!.config.groups['Valid Exercises'].exercises;
-
-      expect(loadedExercises).toHaveLength(3);
-      loadedExercises.forEach((ref, index) => {
+      expect(loaded!.exerciseRefs).toHaveLength(3);
+      loaded!.exerciseRefs.forEach((ref, index) => {
         expect(ref.refId).toBe(validExercises[index].id);
         expect(ref.exerciseId).toBe(validExercises[index].id);
-        const def = loaded!.config.exercises[validExercises[index].id];
+        const def = workout.exercises[validExercises[index].id];
         expect(def.name).toBe(validExercises[index].name);
         expect(def.type).toBe(validExercises[index].type);
         expect(def.value).toBe(validExercises[index].value);
@@ -39,66 +48,54 @@ describe('Exercise Lists - Data Validation', () => {
     });
 
     it('should preserve exercise data types', async () => {
-      const list = await createTrackedExerciseList('Data Types Test');
+      const training = await createTrackedExerciseList('Data Types Test');
 
       const exercisesWithTypes = [
         { id: 'int', name: 'Integer Reps', type: 'reps' as const, value: 15 },
         { id: 'float', name: 'Float Time', type: 'time' as const, value: 45 },
-        { id: 'large', name: 'Large Reps', type: 'reps' as const, value: 5000 }
+        { id: 'large', name: 'Large Reps', type: 'reps' as const, value: 5000 },
       ];
 
-      list.config = createCustomTestConfig({
-        'Data Types': exercisesWithTypes
-      });
+      await saveTrainingWithView(
+        training,
+        createCustomTestWorkoutView({ 'Data Types': exercisesWithTypes })
+      );
 
-      await saveExerciseList(list);
-
-      const loaded = await loadExerciseList(list.id);
-      const loadedExercises = loaded!.config.groups['Data Types'].exercises;
-
-      expect(loaded!.config.exercises['int'].value).toBe(15);
-      expect(loaded!.config.exercises['float'].value).toBe(45);
-      expect(loaded!.config.exercises['large'].value).toBe(5000);
+      const workout = await getWorkoutView(training.id);
+      expect(workout.exercises['int'].value).toBe(15);
+      expect(workout.exercises['float'].value).toBe(45);
+      expect(workout.exercises['large'].value).toBe(5000);
     });
 
-    it('should handle empty exercise arrays', async () => {
-      const list = await createTrackedExerciseList('Empty Exercises Test');
+    it('should handle empty exerciseRefs array', async () => {
+      const training = await createTrackedExerciseList('Empty Exercises Test');
+      training.exerciseRefs = [];
+      await saveTraining(training);
 
-      list.config = createCustomTestConfig({
-        'Empty Group': [],
-        'Another Empty Group': []
-      });
-
-      await saveExerciseList(list);
-
-      const loaded = await loadExerciseList(list.id);
-      expect(loaded!.config.groups['Empty Group'].exercises).toEqual([]);
-      expect(loaded!.config.groups['Another Empty Group'].exercises).toEqual([]);
+      const loaded = await loadTraining(training.id);
+      expect(loaded!.exerciseRefs).toEqual([]);
     });
 
     it('should handle special characters in exercise names', async () => {
-      const list = await createTrackedExerciseList('Special Characters Test');
+      const training = await createTrackedExerciseList('Special Characters Test');
 
       const exercisesWithSpecialChars = [
         { id: 'special1', name: 'Push-ups (Modified)', type: 'reps' as const, value: 10 },
         { id: 'special2', name: 'Plank - Advanced', type: 'time' as const, value: 60 },
         { id: 'special3', name: 'Running: 5K', type: 'reps' as const, value: 10 },
-        { id: 'special4', name: 'Squats & Lunges', type: 'reps' as const, value: 15 }
+        { id: 'special4', name: 'Squats & Lunges', type: 'reps' as const, value: 15 },
       ];
 
-      list.config = createCustomTestConfig({
-        'Special Characters': exercisesWithSpecialChars
-      });
+      await saveTrainingWithView(
+        training,
+        createCustomTestWorkoutView({ Special: exercisesWithSpecialChars })
+      );
 
-      await saveExerciseList(list);
-
-      const loaded = await loadExerciseList(list.id);
-      const loadedExercises = loaded!.config.groups['Special Characters'].exercises;
-
-      expect(loaded!.config.exercises['special1'].name).toBe('Push-ups (Modified)');
-      expect(loaded!.config.exercises['special2'].name).toBe('Plank - Advanced');
-      expect(loaded!.config.exercises['special3'].name).toBe('Running: 5K');
-      expect(loaded!.config.exercises['special4'].name).toBe('Squats & Lunges');
+      const workout = await getWorkoutView(training.id);
+      expect(workout.exercises['special1'].name).toBe('Push-ups (Modified)');
+      expect(workout.exercises['special2'].name).toBe('Plank - Advanced');
+      expect(workout.exercises['special3'].name).toBe('Running: 5K');
+      expect(workout.exercises['special4'].name).toBe('Squats & Lunges');
     });
   });
 
@@ -107,115 +104,99 @@ describe('Exercise Lists - Data Validation', () => {
       const testCases = [0, 30, 120, 300, 999];
 
       for (const restTime of testCases) {
-        const list = await createTrackedExerciseList(`Rest Time ${restTime}`);
+        const training = await createTrackedExerciseList(`Rest Time ${restTime}`);
+        training.globalRestTime = restTime;
+        await saveTraining(training);
 
-        list.config = createCustomTestConfig({}, restTime);
-        await saveExerciseList(list);
-
-        const loaded = await loadExerciseList(list.id);
-        expect(loaded!.config.globalRestTime).toBe(restTime);
+        const loaded = await loadTraining(training.id);
+        expect(loaded!.globalRestTime).toBe(restTime);
       }
     });
 
-    it('should handle empty groups object', async () => {
-      const list = await createTrackedExerciseList('Empty Groups Test');
+    it('should handle empty exerciseRefs on training', async () => {
+      const training = await createTrackedExerciseList('Empty Refs Test');
+      training.exerciseRefs = [];
+      training.globalRestTime = 30;
+      await saveTraining(training);
 
-      list.config = {
-        globalRestTime: 30,
-        exercises: {},
-        groups: {},
-      };
-
-      await saveExerciseList(list);
-
-      const loaded = await loadExerciseList(list.id);
-      expect(loaded!.config.groups).toEqual({});
-      expect(Object.keys(loaded!.config.groups)).toHaveLength(0);
+      const loaded = await loadTraining(training.id);
+      expect(loaded!.exerciseRefs).toEqual([]);
+      expect(loaded!.exerciseRefs).toHaveLength(0);
     });
 
-    it('should preserve group names with spaces and special characters', async () => {
-      const list = await createTrackedExerciseList('Group Names Test');
+    it('should preserve multiple exercise refs in order', async () => {
+      const training = await createTrackedExerciseList('Refs Order Test');
 
-      const groupsWithSpecialNames = {
-        'Basic Exercises': [
-          { id: 'basic1', name: 'Push-up', type: 'reps' as const, value: 10 }
-        ],
-        'Advanced (Level 2)': [
-          { id: 'adv1', name: 'Pistol Squat', type: 'reps' as const, value: 5 }
-        ],
-        'Cardio & Core': [
-          { id: 'cardio1', name: 'Burpee', type: 'reps' as const, value: 8 }
-        ]
-      };
+      await saveTrainingWithView(
+        training,
+        createCustomTestWorkoutView({
+          'Basic Exercises': [{ id: 'basic1', name: 'Push-up', type: 'reps', value: 10 }],
+          'Advanced (Level 2)': [{ id: 'adv1', name: 'Pistol Squat', type: 'reps', value: 5 }],
+          'Cardio & Core': [{ id: 'cardio1', name: 'Burpee', type: 'reps', value: 8 }],
+        })
+      );
 
-      list.config = createCustomTestConfig(groupsWithSpecialNames);
-
-      await saveExerciseList(list);
-
-      const loaded = await loadExerciseList(list.id);
-      expect(Object.keys(loaded!.config.groups)).toHaveLength(3);
-      expect(loaded!.config.groups).toHaveProperty('Basic Exercises');
-      expect(loaded!.config.groups).toHaveProperty('Advanced (Level 2)');
-      expect(loaded!.config.groups).toHaveProperty('Cardio & Core');
+      const loaded = await loadTraining(training.id);
+      expect(loaded!.exerciseRefs).toHaveLength(3);
+      expect(loaded!.exerciseRefs.map((r) => r.exerciseId)).toEqual(['basic1', 'adv1', 'cardio1']);
     });
   });
 
-  describe('List Metadata Integrity', () => {
-    it('should preserve list names with special characters', async () => {
+  describe('Training Metadata Integrity', () => {
+    it('should preserve training names with special characters', async () => {
       const testNames = [
         'My Workout (Advanced)',
         'Morning Routine - Week 1',
         'Cardio: HIIT Session',
         'Strength & Power',
-        'Recovery + Mobility'
+        'Recovery + Mobility',
       ];
 
-      const lists = [];
+      const trainings = [];
 
       for (const name of testNames) {
-        const list = await createTrackedExerciseList(name, `Description for ${name}`);
-        await saveExerciseList(list);
-        lists.push(list);
+        const training = await createTrackedExerciseList(name, `Description for ${name}`);
+        await saveTraining(training);
+        trainings.push(training);
       }
 
-      for (const list of lists) {
-        const loaded = await loadExerciseList(list.id);
-        expect(loaded!.name).toBe(list.name);
-        expect(loaded!.description).toBe(list.description);
+      for (const training of trainings) {
+        const loaded = await loadTraining(training.id);
+        expect(loaded!.name).toBe(training.name);
+        expect(loaded!.description).toBe(training.description);
       }
     });
 
-    it('should handle very long list names and descriptions', async () => {
+    it('should handle very long training names and descriptions', async () => {
       const longName = 'A'.repeat(200);
       const longDescription = 'B'.repeat(1000);
 
-      const list = await createTrackedExerciseList(longName, longDescription);
-      await saveExerciseList(list);
+      const training = await createTrackedExerciseList(longName, longDescription);
+      await saveTraining(training);
 
-      const loaded = await loadExerciseList(list.id);
+      const loaded = await loadTraining(training.id);
       expect(loaded!.name).toBe(longName);
       expect(loaded!.description).toBe(longDescription);
     });
 
     it('should preserve timestamps correctly', async () => {
-      const list = await createTrackedExerciseList('Timestamp Test');
+      const training = await createTrackedExerciseList('Timestamp Test');
 
-      const createdAt = list.createdAt;
-      const updatedAt = list.updatedAt;
+      const createdAt = training.createdAt;
+      const updatedAt = training.updatedAt;
 
-      await saveExerciseList(list);
+      await saveTraining(training);
 
-      const loaded = await loadExerciseList(list.id);
-      expect(new Date(loaded!.createdAt).getTime()).toBeCloseTo(new Date(createdAt).getTime(), -2); // Within 100ms
+      const loaded = await loadTraining(training.id);
+      expect(new Date(loaded!.createdAt).getTime()).toBeCloseTo(new Date(createdAt).getTime(), -2);
       expect(new Date(loaded!.updatedAt).getTime()).toBeCloseTo(new Date(updatedAt).getTime(), -2);
 
-      // Wait a bit and save again to test updatedAt changes
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 10));
 
-      list.config.globalRestTime = 60;
-      await saveExerciseList(list);
+      training.globalRestTime = 60;
+      await saveTraining(training);
 
-      const reloaded = await loadExerciseList(list.id);
+      const reloaded = await loadTraining(training.id);
       expect(reloaded!.createdAt).toBe(createdAt);
       expect(reloaded!.updatedAt).not.toBe(updatedAt);
       expect(new Date(reloaded!.updatedAt).getTime()).toBeGreaterThan(new Date(updatedAt).getTime());
@@ -224,64 +205,63 @@ describe('Exercise Lists - Data Validation', () => {
 
   describe('File System Resilience', () => {
     it('should handle concurrent file operations', async () => {
-      const lists = [];
+      const trainings = [];
 
-      // Create multiple lists simultaneously
       const promises = [];
       for (let i = 1; i <= 10; i++) {
         promises.push(createTrackedExerciseList(`Concurrent ${i}`));
       }
 
-      const createdLists = await Promise.all(promises);
+      const created = await Promise.all(promises);
 
-      // Save them simultaneously
-      const savePromises = createdLists.map(list => {
-        list.config = createCustomTestConfig({
-          [`Group ${list.name}`]: [
-            { id: `ex${list.name}`, name: `Exercise ${list.name}`, type: 'reps' as const, value: 10 }
-          ]
+      for (const training of created) {
+        const view = createCustomTestWorkoutView({
+          [`Group ${training.name}`]: [
+            {
+              id: `ex${training.name.replace(/\s/g, '')}`,
+              name: `Exercise ${training.name}`,
+              type: 'reps' as const,
+              value: 10,
+            },
+          ],
         });
-        return saveExerciseList(list);
-      });
+        await saveTrainingWithView(training, view);
+      }
 
-      await Promise.all(savePromises);
+      const loadPromises = created.map((t) => loadTraining(t.id));
+      const loaded = await Promise.all(loadPromises);
 
-      // Load them simultaneously
-      const loadPromises = createdLists.map(list => loadExerciseList(list.id));
-      const loadedLists = await Promise.all(loadPromises);
-
-      loadedLists.forEach((loaded, index) => {
-        expect(loaded).toBeDefined();
-        expect(loaded!.name).toBe(createdLists[index].name);
-        expect(loaded!.config.groups[`Group ${loaded!.name}`].exercises).toHaveLength(1);
+      loaded.forEach((item, index) => {
+        expect(item).toBeDefined();
+        expect(item!.name).toBe(created[index].name);
+        expect(item!.exerciseRefs).toHaveLength(1);
       });
     });
 
     it('should handle file system race conditions', async () => {
-      const list1 = await createTrackedExerciseList('Race Condition Test 1');
-      const list2 = await createTrackedExerciseList('Race Condition Test 2');
+      const training1 = await createTrackedExerciseList('Race Condition Test 1');
+      const training2 = await createTrackedExerciseList('Race Condition Test 2');
 
-      // Both lists try to modify and save simultaneously
-      const promise1 = (async () => {
-        list1.config = createCustomTestConfig({
-          'Group 1': [{ id: 'r1', name: 'Race Exercise 1', type: 'reps' as const, value: 5 }]
-        });
-        await saveExerciseList(list1);
-        return loadExerciseList(list1.id);
-      })();
+      await saveTrainingWithView(
+        training1,
+        createCustomTestWorkoutView({
+          'Group 1': [{ id: 'r1', name: 'Race Exercise 1', type: 'reps', value: 5 }],
+        })
+      );
+      await saveTrainingWithView(
+        training2,
+        createCustomTestWorkoutView({
+          'Group 2': [{ id: 'r2', name: 'Race Exercise 2', type: 'reps', value: 10 }],
+        })
+      );
 
-      const promise2 = (async () => {
-        list2.config = createCustomTestConfig({
-          'Group 2': [{ id: 'r2', name: 'Race Exercise 2', type: 'reps' as const, value: 10 }]
-        });
-        await saveExerciseList(list2);
-        return loadExerciseList(list2.id);
-      })();
+      const [view1, view2] = await Promise.all([
+        getWorkoutView(training1.id),
+        getWorkoutView(training2.id),
+      ]);
 
-      const [loaded1, loaded2] = await Promise.all([promise1, promise2]);
-
-      expect(loaded1!.config.exercises['r1'].value).toBe(5);
-      expect(loaded2!.config.exercises['r2'].value).toBe(10);
+      expect(view1.exercises['r1'].value).toBe(5);
+      expect(view2.exercises['r2'].value).toBe(10);
     });
   });
 });

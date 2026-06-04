@@ -1,0 +1,18 @@
+{
+  "name": "Jambes",
+  "globalRestTime": 20,
+  "exerciseRefs": [
+    { "refId": "ce-3", "exerciseId": "ce-3" },
+    { "refId": "ex-dynamisme-01", "exerciseId": "ex-dynamisme-01" },
+    { "refId": "ex-dynamisme-02", "exerciseId": "ex-dynamisme-02" },
+    { "refId": "ex-dynamisme-03", "exerciseId": "ex-dynamisme-03" },
+    { "refId": "ex-dynamisme-04", "exerciseId": "ex-dynamisme-04" },
+    { "refId": "ex-jambes-mollets-01", "exerciseId": "ex-jambes-mollets-01" },
+    { "refId": "ex-jambes-mollets-02", "exerciseId": "ex-jambes-mollets-02" },
+    { "refId": "ex-jambes-mollets-03", "exerciseId": "ex-jambes-mollets-03" },
+    { "refId": "ex-jambes-mollets-04", "exerciseId": "ex-jambes-mollets-04" },
+    { "refId": "ex-jambes-mollets-05", "exerciseId": "ex-jambes-mollets-05" },
+    { "refId": "ex-core-01", "exerciseId": "ex-core-01" },
+    { "refId": "ex-core-02", "exerciseId": "ex-core-02" }
+  ]
+}

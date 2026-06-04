@@ -1,42 +1,39 @@
 ## ADDED Requirements
 
-### Requirement: Predefined muscle groups
-The system SHALL define a fixed set of muscle groups (`MuscleGroupKey`) for catalog classification only — anatomical / functional targets (e.g. *Split step rapide* → `jambes`). Each key SHALL have a French display label and icon for UI rendering. This is distinct from session **groups** (`WorkoutConfig.groups`, e.g. *Explosivité jambes*), which organize exercises during a workout.
+### Requirement: Allowed muscle group keys
+The system SHALL support exactly these `MuscleGroupKey` values: `jambes`, `mollets`, `epaules`, `bras`, `abdos`, `pecs`, and `autre`. Keys `fessiers` and `dos` SHALL NOT exist in types, admin selectors, color mappings, or bundled catalog data.
 
-Allowed keys: `jambes`, `mollets`, `fessiers`, `dos`, `epaules`, `bras`, `abdos`, `pecs`, `autre`.
+#### Scenario: Admin muscle group picker excludes removed keys
+- **WHEN** the admin creates or edits a catalog exercise
+- **THEN** the muscle group dropdown lists only the allowed keys
+- **THEN** `fessiers` and `dos` are not offered
 
-#### Scenario: Muscle group registry available
-- **WHEN** the admin catalog tab or validation layer needs muscle group metadata
-- **THEN** a single registry maps each allowed key to `label` and `icon`
-- **THEN** unknown keys are rejected on save
+#### Scenario: Granular leg muscle classification
+- **WHEN** lower-body exercises are classified in the bundled catalog
+- **THEN** dynamism and general leg work use `jambes`
+- **THEN** calf-specific work uses `mollets`
 
-#### Scenario: Distinct from session groups
-- **WHEN** an exercise has `muscleGroup: "jambes"` in the catalog
-- **THEN** it may appear in any session group (e.g. *Cardio endurance*, *Explosivité jambes*) via group references
-- **THEN** changing session group membership does not change `muscleGroup`
+#### Scenario: Homepage shows separate leg sections
+- **WHEN** a training contains exercises in mollets and jambes groups
+- **THEN** the homepage renders separate blocks for each non-empty muscle group
 
-### Requirement: Muscle group field on catalog entries
-Each `ExerciseDefinition` in `WorkoutConfig.exercises` SHALL include a required `muscleGroup` field of type `MuscleGroupKey`.
+### Requirement: Autre muscle group as invisible fallback
+The **autre** `muscleGroup` key SHALL remain for legacy or invalid values after normalization. Admin and homepage sections for **autre** SHALL only render when at least one catalog exercise uses that key.
 
-#### Scenario: Catalog entry includes muscle group
-- **WHEN** a catalog exercise is created or loaded from a valid list
-- **THEN** the entry contains `id`, `name`, `type`, `value`, and `muscleGroup`
-- **THEN** `muscleGroup` is one of the predefined keys
+#### Scenario: Empty autre section hidden
+- **WHEN** no catalog exercise has `muscleGroup` **autre**
+- **THEN** no **Autre** section appears on the Exercices tab, Entraînements tab, or homepage
 
-#### Scenario: Import assigns default muscle group when missing
-- **WHEN** imported JSON catalog entries omit `muscleGroup`
-- **THEN** each entry receives `muscleGroup: "autre"` before persistence
-- **THEN** the admin can reassign the muscle group in the catalog tab
+### Requirement: Muscle group catalog in admin
+The system SHALL display and edit catalog exercises grouped by predefined `muscleGroup` keys on the **Exercices** tab only. Muscle groups are anatomical classifications distinct from trainings. Sections SHALL appear only for muscle groups that have at least one catalog entry.
 
-### Requirement: Catalog tab grouped by muscle group
-The admin "Liste d'exercices" tab SHALL display catalog exercises grouped by `muscleGroup`, sorted in registry order, with the muscle group icon and label as section headers (UI label: « Groupe musculaire »).
+#### Scenario: Catalog tab groups by muscle group
+- **WHEN** the admin views the Exercices tab
+- **THEN** exercises are rendered in sections per allowed `muscleGroup` with icons or labels
+- **THEN** no training selector appears on this tab
+- **THEN** no section is shown for removed keys `fessiers` or `dos`
 
-#### Scenario: View exercises by muscle group
-- **WHEN** the admin opens the catalog tab with an active list
-- **THEN** exercises appear under their muscle group section with the section icon visible
-- **THEN** empty muscle groups are omitted from the layout
-
-#### Scenario: Create exercise with muscle group
-- **WHEN** the admin creates a catalog exercise from the catalog tab
-- **THEN** they MUST select a muscle group before submission
-- **THEN** the new entry is persisted with the chosen `muscleGroup`
+#### Scenario: Entraînements tab groups training refs by muscle group
+- **WHEN** the admin views the Entraînements tab for an active training
+- **THEN** referenced exercises are grouped under the same `muscleGroup` sections derived from the global catalog
+- **THEN** adding an exercise is scoped to the section's muscle group filter

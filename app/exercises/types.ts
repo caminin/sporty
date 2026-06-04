@@ -1,7 +1,15 @@
 import type { MuscleGroupKey } from "./muscle-groups";
 
 export type ExerciseType = "time" | "reps";
-export type GroupColorKey = "red" | "blue" | "purple" | "yellow" | "emerald" | "primary" | "orange" | "cyan";
+export type GroupColorKey =
+    | "red"
+    | "blue"
+    | "purple"
+    | "yellow"
+    | "emerald"
+    | "primary"
+    | "orange"
+    | "cyan";
 
 /** Catalogue entry — default name, type, value, and muscle group for an exercise. */
 export interface ExerciseDefinition {
@@ -10,11 +18,10 @@ export interface ExerciseDefinition {
     type: ExerciseType;
     /** Duration in seconds if type="time", repetition count if type="reps" */
     value: number;
-    /** Anatomical muscle group (e.g. split step → jambes), not a session group */
     muscleGroup: MuscleGroupKey;
 }
 
-/** Placement of a catalog exercise inside a group (optional value override). */
+/** Placement of a catalog exercise inside a training (optional value override). */
 export interface GroupExerciseRef {
     refId: string;
     exerciseId: string;
@@ -28,27 +35,33 @@ export interface ResolvedExercise {
     name: string;
     type: ExerciseType;
     value: number;
+    /** Catalog muscle group — used as session group label */
+    muscleGroup: MuscleGroupKey;
 }
 
-/** @deprecated Use ExerciseDefinition — kept for gradual import updates */
+/** @deprecated Use ExerciseDefinition */
 export type Exercise = ResolvedExercise;
 
-export interface WorkoutConfig {
-    globalRestTime: number;
+export interface GlobalCatalog {
     exercises: Record<string, ExerciseDefinition>;
-    groups: Record<string, Group>;
 }
 
-export interface Group {
+export interface Training {
     id: string;
     name: string;
-    icon: string;
-    color: GroupColorKey;
+    description?: string;
+    globalRestTime: number;
+    exerciseRefs: GroupExerciseRef[];
     createdAt: string;
-    exercises: GroupExerciseRef[];
+    updatedAt: string;
 }
 
-export interface CustomGroup extends Group {}
+/** Runtime view: global catalog + active training refs (replaces per-list WorkoutConfig). */
+export interface WorkoutView {
+    globalRestTime: number;
+    exercises: Record<string, ExerciseDefinition>;
+    exerciseRefs: GroupExerciseRef[];
+}
 
 export type SessionStep =
     | { kind: "work"; name: string; group: string; type: "time"; duration: number }

@@ -1,8 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach, afterAll } from '@jest/globals';
 import { tempFilesystemSetup } from '../../__tests__/shared/test-helpers';
-import { importCatalogFromJson, importGroupsFromJson } from '../lists-actions';
-import { exportCatalogToJson, exportGroupsToJson } from '../workout-config';
-import { createTestConfig } from '../../__tests__/shared/exercise-lists-helpers';
+import { importGlobalCatalogFromJson, importTrainingFromJson } from '../lists-actions';
+import { exportCatalogToJson, exportTrainingToJson } from '../workout-config';
+import {
+  createTestCatalog,
+  createTestTraining,
+  persistTestCatalogAndTraining,
+} from '../../__tests__/shared/exercise-lists-helpers';
+import { loadGlobalCatalog } from '../catalog';
+import { loadTraining } from '../lists';
 
 beforeEach(tempFilesystemSetup.beforeEach);
 afterEach(tempFilesystemSetup.afterEach);
@@ -11,93 +17,82 @@ afterAll(tempFilesystemSetup.afterAll);
 describe('catalog import actions', () => {
   const adminPassword = process.env.ADMIN_PASSWORD ?? 'sporty';
 
-  it('creates a new list from catalog JSON', async () => {
-    const config = createTestConfig();
-    const json = exportCatalogToJson(config);
+  it('imports global catalog from JSON', async () => {
+    const catalog = createTestCatalog();
+    const json = exportCatalogToJson(catalog);
 
-    const result = await importCatalogFromJson(json, adminPassword, {
-      listName: 'Liste catalogue test',
-    });
+    const result = await importGlobalCatalogFromJson(json, adminPassword, {});
 
     expect(result.success).toBe(true);
-    expect(result.listId).toBeDefined();
+    const loaded = await loadGlobalCatalog();
+    expect(loaded.exercises.push1).toBeDefined();
   });
 
-  it('imports groups onto existing list', async () => {
-    const config = createTestConfig();
-    const catalogResult = await importCatalogFromJson(
-      exportCatalogToJson(config),
-      adminPassword,
-      { listName: 'Liste pour groupes' }
-    );
-    expect(catalogResult.listId).toBeDefined();
+  it('imports training refs onto existing training', async () => {
+    const catalog = createTestCatalog();
+    const training = createTestTraining('Liste pour refs');
+    await persistTestCatalogAndTraining(training, catalog);
 
-    const groupsResult = await importGroupsFromJson(
-      exportGroupsToJson(config),
-      catalogResult.listId!,
-      adminPassword
+    const catalogResult = await importGlobalCatalogFromJson(
+      exportCatalogToJson(catalog),
+      adminPassword,
+      {}
     );
-    expect(groupsResult.success).toBe(true);
+    expect(catalogResult.success).toBe(true);
+
+    const trainingJson = exportTrainingToJson(training);
+    const refsResult = await importTrainingFromJson(trainingJson, adminPassword, {
+      trainingId: training.id,
+      replaceRefs: true,
+    });
+    expect(refsResult.success).toBe(true);
+
+    const loaded = await loadTraining(training.id);
+    expect(loaded!.exerciseRefs.length).toBe(training.exerciseRefs.length);
   });
 
-  it('rejects groups import with orphan exerciseId', async () => {
-    const config = createTestConfig();
-    const catalogResult = await importCatalogFromJson(
-      exportCatalogToJson(config),
-      adminPassword,
-      { listName: 'Liste orphan test' }
-    );
+  it('rejects training import with orphan exerciseId', async () => {
+    const catalog = createTestCatalog();
+    await importGlobalCatalogFromJson(exportCatalogToJson(catalog), adminPassword, {});
 
-    const badGroups = {
-      groups: {
-        Bad: {
-          id: 'bad',
-          name: 'Bad',
-          icon: 'zap',
-          color: 'red',
-          createdAt: new Date().toISOString(),
-          exercises: [{ refId: 'r1', exerciseId: 'does-not-exist' }],
-        },
-      },
+    const training = createTestTraining('Liste orphan test');
+    await persistTestCatalogAndTraining(training, catalog);
+
+    const badTraining = {
+      globalRestTime: 30,
+      exerciseRefs: [{ refId: 'r1', exerciseId: 'does-not-exist' }],
     };
 
-    const result = await importGroupsFromJson(
-      JSON.stringify(badGroups),
-      catalogResult.listId!,
-      adminPassword
+    const result = await importTrainingFromJson(
+      JSON.stringify(badTraining),
+      adminPassword,
+      { trainingId: training.id, replaceRefs: true }
     );
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/catalogue/);
   });
 
-  it('replaceAll fails when group refs would be orphan', async () => {
-    const config = createTestConfig();
-    const created = await importCatalogFromJson(
-      exportCatalogToJson(config),
-      adminPassword,
-      { listName: 'Liste replace' }
-    );
+  it('replaceAll fails when training refs would be orphan', async () => {
+    const catalog = createTestCatalog();
+    const training = createTestTraining('Liste replace');
+    await persistTestCatalogAndTraining(training, catalog);
 
-    const groupsResult = await importGroupsFromJson(
-      exportGroupsToJson(config),
-      created.listId!,
-      adminPassword
-    );
-    expect(groupsResult.success).toBe(true);
+    await importGlobalCatalogFromJson(exportCatalogToJson(catalog), adminPassword, {});
+    await importTrainingFromJson(exportTrainingToJson(training), adminPassword, {
+      trainingId: training.id,
+      replaceRefs: true,
+    });
 
     const replaceJson = exportCatalogToJson({
-      globalRestTime: 10,
       exercises: {
         solo: { id: 'solo', name: 'Solo', type: 'reps', value: 5, muscleGroup: 'jambes' },
       },
-      groups: {},
     });
 
-    const replaced = await importCatalogFromJson(replaceJson, adminPassword, {
-      listId: created.listId,
+    const replaced = await importGlobalCatalogFromJson(replaceJson, adminPassword, {
       replaceAll: true,
     });
     expect(replaced.success).toBe(false);
-    expect(replaced.error).toMatch(/catalogue/);
+    expect(replaced.error).toMatch(/catalogue|manquant/i);
   });
 });

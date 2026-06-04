@@ -14,7 +14,7 @@ export default function ListSelector({
     lists,
     selectedListId,
     onSelect,
-    title = 'Liste active',
+    title = 'Entraînement actif',
 }: ListSelectorProps) {
     if (lists.length === 0) return null;
 
@@ -48,7 +48,7 @@ export default function ListSelector({
                             </div>
                         </div>
                         {selectedListId === list.id && (
-                            <div className="text-xs text-[#13ec5b] mt-2">Liste active</div>
+                            <div className="text-xs text-[#13ec5b] mt-2">Actif</div>
                         )}
                     </button>
                 ))}
