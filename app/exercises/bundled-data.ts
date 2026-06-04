@@ -6,8 +6,8 @@ import { normalizeCatalog, parseTrainingJson } from "./workout-config";
 const BUNDLED_DIR = path.join(process.cwd(), "public", "bundled-exercice-list");
 
 export const BUNDLED_TRAINING_SLUGS = {
-    global: "entrainement-global",
-    dynamisme: "entrainement-dynamisme-jambes-mollets-core",
+    global: ["haut-du-corps", "entrainement-global"],
+    dynamisme: ["jambes", "entrainement-dynamisme-jambes-mollets-core"],
 } as const;
 
 export const BUNDLED_TRAINING_IDS = {
@@ -28,7 +28,7 @@ export async function readBundledCatalog(): Promise<GlobalCatalog> {
 export async function readBundledTrainingPayload(
     slug: keyof typeof BUNDLED_TRAINING_SLUGS
 ): Promise<{ name: string; globalRestTime: number; exerciseRefs: GroupExerciseRef[] }> {
-    const fileName = `${BUNDLED_TRAINING_SLUGS[slug]}.json`;
+    const fileName = await resolveBundledTrainingFileName(slug);
     const raw = await fs.readFile(path.join(BUNDLED_DIR, fileName), "utf-8");
     const parsed = parseTrainingJson(JSON.parse(raw));
     if (parsed.error || !parsed.payload) {
@@ -40,6 +40,23 @@ export async function readBundledTrainingPayload(
         globalRestTime: p.globalRestTime,
         exerciseRefs: p.exerciseRefs,
     };
+}
+
+async function resolveBundledTrainingFileName(
+    slug: keyof typeof BUNDLED_TRAINING_SLUGS
+): Promise<string> {
+    const candidates = BUNDLED_TRAINING_SLUGS[slug].map((value) => `${value}.json`);
+    for (const candidate of candidates) {
+        try {
+            await fs.access(path.join(BUNDLED_DIR, candidate));
+            return candidate;
+        } catch {
+            // Continue searching for a compatible fallback filename.
+        }
+    }
+    throw new Error(
+        `Aucun fichier bundle trouvé pour '${slug}'. Fichiers attendus: ${candidates.join(", ")}`
+    );
 }
 
 export function trainingFromBundle(
