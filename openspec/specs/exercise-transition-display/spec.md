@@ -1,5 +1,5 @@
 ## Requirement: Exercise transition display
-Le système DOIT afficher un écran de transition avec un compte à rebours de 5 secondes uniquement avant le début du premier exercice de travail de la séance. Aucune transition n'est affichée entre les exercices suivants.
+The system SHALL display a transition screen with a 5-second countdown only before the first work exercise of the session. No transition SHALL be shown between subsequent exercises. When the first exercise has multiple series (`seriesTotal` > 1), the transition screen SHALL display the series position of the first block (e.g. « Série 1/3 »).
 
 #### Scenario: Transition display appears before first exercise
 - **WHEN** la séance démarre et que le premier step est un exercice de travail
@@ -24,6 +24,10 @@ Le système DOIT afficher un écran de transition avec un compte à rebours de 5
 #### Scenario: Exercise information visibility
 - **WHEN** l'écran de transition est affiché
 - **THEN** le nom et le groupe du prochain exercice sont clairement visibles
+
+#### Scenario: Series visible on first exercise preparation
+- **WHEN** le premier work step a `seriesTotal` 3
+- **THEN** l'écran de transition affiche la série 1/3 en plus du nom et du groupe
 
 #### Scenario: Skip preparation
 - **WHEN** l'utilisateur appuie sur le bouton "Passer" pendant la phase de préparation

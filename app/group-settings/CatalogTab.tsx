@@ -19,6 +19,7 @@ type CatalogFormState = {
     name: string;
     type: ExerciseType;
     value: string;
+    series: string;
     muscleGroup: MuscleGroupKey;
 };
 
@@ -26,6 +27,7 @@ const DEFAULT_CATALOG_FORM: CatalogFormState = {
     name: '',
     type: 'reps',
     value: '',
+    series: '1',
     muscleGroup: 'jambes',
 };
 
@@ -67,7 +69,9 @@ export default function ExercisesTab({ adminPassword }: ExercisesTabProps) {
     const handleAdd = () => {
         const name = form.name.trim();
         const value = parseInt(form.value, 10);
+        const series = parseInt(form.series, 10);
         if (!name || isNaN(value) || value <= 0) return;
+        if (isNaN(series) || series <= 0) return;
 
         startTransition(async () => {
             try {
@@ -76,6 +80,7 @@ export default function ExercisesTab({ adminPassword }: ExercisesTabProps) {
                     type: form.type,
                     value,
                     muscleGroup: form.muscleGroup,
+                    ...(series >= 2 ? { series } : {}),
                 });
                 setCatalog(updated);
                 setForm(DEFAULT_CATALOG_FORM);
@@ -101,7 +106,7 @@ export default function ExercisesTab({ adminPassword }: ExercisesTabProps) {
 
     const persistCatalogUpdate = (
         exerciseId: string,
-        updates: Partial<Pick<ExerciseDefinition, 'name' | 'type' | 'value' | 'muscleGroup'>>
+        updates: Partial<Pick<ExerciseDefinition, 'name' | 'type' | 'value' | 'muscleGroup' | 'series'>>
     ) => {
         startTransition(async () => {
             try {
@@ -190,6 +195,22 @@ export default function ExercisesTab({ adminPassword }: ExercisesTabProps) {
                                     disabled={isPending}
                                     className="w-20 bg-neutral-700 border-none rounded-lg p-2 text-white text-sm"
                                 />
+                                <input
+                                    type="number"
+                                    min={1}
+                                    defaultValue={def.series ?? 1}
+                                    key={`${def.id}-series-${def.series ?? 1}`}
+                                    onBlur={(e) => {
+                                        const series = parseInt(e.target.value, 10);
+                                        const current = def.series ?? 1;
+                                        if (isNaN(series) || series <= 0 || series === current) return;
+                                        persistCatalogUpdate(def.id, { series });
+                                    }}
+                                    disabled={isPending}
+                                    className="w-16 bg-neutral-700 border-none rounded-lg p-2 text-white text-sm"
+                                    aria-label={`Séries par défaut pour ${def.name}`}
+                                />
+                                <span className="text-xs text-neutral-500 shrink-0">sér.</span>
                                 <select
                                     value={def.muscleGroup}
                                     onChange={(e) =>
@@ -268,6 +289,15 @@ export default function ExercisesTab({ adminPassword }: ExercisesTabProps) {
                             value={form.value}
                             onChange={(e) => setForm((f) => ({ ...f, value: e.target.value }))}
                             className="flex-1 bg-neutral-800 border-none rounded-lg p-3 text-white text-sm"
+                        />
+                        <input
+                            type="number"
+                            min={1}
+                            placeholder="Séries"
+                            value={form.series}
+                            onChange={(e) => setForm((f) => ({ ...f, series: e.target.value }))}
+                            className="w-20 bg-neutral-800 border-none rounded-lg p-3 text-white text-sm"
+                            aria-label="Séries par défaut"
                         />
                         <button
                             type="button"

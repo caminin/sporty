@@ -47,12 +47,36 @@ describe('Training exercise ref actions', () => {
     const withRef = await addExerciseToTraining(trainingId, 'push1');
     const refId = withRef.exerciseRefs.find((r) => r.exerciseId === 'push1')!.refId;
 
-    const overridden = await updateTrainingExerciseRef(trainingId, refId, 25);
+    const overridden = await updateTrainingExerciseRef(trainingId, refId, { value: 25 });
     const ref = overridden.exerciseRefs.find((r) => r.refId === refId);
     expect(ref!.value).toBe(25);
 
-    const cleared = await updateTrainingExerciseRef(trainingId, refId, null);
+    const cleared = await updateTrainingExerciseRef(trainingId, refId, { value: null });
     expect(cleared.exerciseRefs.find((r) => r.refId === refId)!.value).toBeUndefined();
+  });
+
+  it('should update and clear ref series override', async () => {
+    const withRef = await addExerciseToTraining(trainingId, 'push1');
+    const refId = withRef.exerciseRefs.find((r) => r.exerciseId === 'push1')!.refId;
+
+    const withSeries = await updateTrainingExerciseRef(trainingId, refId, { series: 3 });
+    expect(withSeries.exerciseRefs.find((r) => r.refId === refId)!.series).toBe(3);
+
+    const cleared = await updateTrainingExerciseRef(trainingId, refId, { series: null });
+    expect(cleared.exerciseRefs.find((r) => r.refId === refId)!.series).toBeUndefined();
+  });
+
+  it('should reject invalid series count', async () => {
+    const withRef = await addExerciseToTraining(trainingId, 'push1');
+    const refId = withRef.exerciseRefs.find((r) => r.exerciseId === 'push1')!.refId;
+
+    await expect(updateTrainingExerciseRef(trainingId, refId, { series: 1 })).resolves.toBeDefined();
+    expect(
+      (await updateTrainingExerciseRef(trainingId, refId, { series: 1 }))
+        .exerciseRefs.find((r) => r.refId === refId)!.series
+    ).toBeUndefined();
+
+    await expect(updateTrainingExerciseRef(trainingId, refId, { series: 0 })).rejects.toThrow();
   });
 
   it('should delete an exercise ref from a training', async () => {

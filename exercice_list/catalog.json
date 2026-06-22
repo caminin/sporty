@@ -18,14 +18,15 @@
       "id": "ef-1",
       "name": "Pompes",
       "type": "reps",
-      "value": 40,
-      "muscleGroup": "pecs"
+      "value": 20,
+      "muscleGroup": "pecs",
+      "series": 2
     },
     "ef-2": {
       "id": "ef-2",
       "name": "Pompes claquée",
       "type": "reps",
-      "value": 20,
+      "value": 15,
       "muscleGroup": "pecs"
     },
     "ef-3": {
@@ -33,7 +34,8 @@
       "name": "Pompes hautes",
       "type": "reps",
       "value": 20,
-      "muscleGroup": "pecs"
+      "muscleGroup": "pecs",
+      "series": 2
     },
     "ab-3": {
       "id": "ab-3",
@@ -112,19 +114,37 @@
       "value": 30,
       "muscleGroup": "abdos"
     },
+    "ex-core-03": {
+      "id": "ex-core-03",
+      "name": "Gainage latéral",
+      "type": "time",
+      "value": 45,
+      "muscleGroup": "abdos",
+      "series": 2
+    },
+    "ex-epaules-01": {
+      "id": "ex-epaules-01",
+      "name": "Élévation latérale haltères",
+      "type": "reps",
+      "value": 10,
+      "muscleGroup": "bras",
+      "series": 2
+    },
     "ex-bras-curl-01": {
       "id": "ex-bras-curl-01",
       "name": "Curl haltères",
       "type": "reps",
       "value": 15,
-      "muscleGroup": "bras"
+      "muscleGroup": "bras",
+      "series": 2
     },
     "ex-bras-curl-02": {
       "id": "ex-bras-curl-02",
       "name": "Curl Zottman haltères",
       "type": "reps",
       "value": 15,
-      "muscleGroup": "bras"
+      "muscleGroup": "bras",
+      "series": 2
     }
   }
 }

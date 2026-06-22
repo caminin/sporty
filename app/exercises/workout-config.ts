@@ -35,7 +35,37 @@ export function normalizeExerciseDefinition(
 
     const muscleGroup = normalizeMuscleGroup(d.muscleGroup);
 
-    return { id, name: d.name, type: d.type, value: d.value, muscleGroup };
+    if (d.series !== undefined) {
+        if (!Number.isInteger(d.series) || d.series < 2) {
+            return null;
+        }
+    }
+
+    const def: ExerciseDefinition = {
+        id,
+        name: d.name,
+        type: d.type,
+        value: d.value,
+        muscleGroup,
+    };
+    if (d.series !== undefined && d.series >= 2) {
+        def.series = d.series;
+    }
+    return def;
+}
+
+export function normalizeCatalogExercise(def: ExerciseDefinition): ExerciseDefinition {
+    const normalized: ExerciseDefinition = {
+        id: def.id,
+        name: def.name,
+        type: def.type,
+        value: def.value,
+        muscleGroup: def.muscleGroup,
+    };
+    if (def.series !== undefined && Number.isInteger(def.series) && def.series >= 2) {
+        normalized.series = def.series;
+    }
+    return normalized;
 }
 
 export function normalizeCatalog(
@@ -53,6 +83,27 @@ export function normalizeCatalog(
     return catalog;
 }
 
+export function getEffectiveSeries(
+    def: ExerciseDefinition,
+    ref: GroupExerciseRef
+): number {
+    return ref.series ?? def.series ?? 1;
+}
+
+export function normalizeGroupRef(ref: GroupExerciseRef): GroupExerciseRef {
+    const normalized: GroupExerciseRef = {
+        refId: ref.refId,
+        exerciseId: ref.exerciseId,
+    };
+    if (ref.value !== undefined && ref.value > 0) {
+        normalized.value = ref.value;
+    }
+    if (ref.series !== undefined && Number.isInteger(ref.series) && ref.series >= 2) {
+        normalized.series = ref.series;
+    }
+    return normalized;
+}
+
 export function validateGroupRef(
     ref: unknown,
     catalog: Record<string, ExerciseDefinition>
@@ -63,6 +114,12 @@ export function validateGroupRef(
     if (isEmbeddedExercise(ref)) return false;
     if (!catalog[r.exerciseId]) return false;
     if (r.value !== undefined && (typeof r.value !== "number" || r.value <= 0)) {
+        return false;
+    }
+    if (
+        r.series !== undefined &&
+        (!Number.isInteger(r.series) || r.series < 2)
+    ) {
         return false;
     }
     return true;
@@ -87,6 +144,7 @@ export function resolveRef(
         name: def.name,
         type: def.type,
         value: getEffectiveValue(def, ref),
+        series: getEffectiveSeries(def, ref),
         muscleGroup: def.muscleGroup,
     };
 }
@@ -98,7 +156,7 @@ export function buildWorkoutView(
     return {
         globalRestTime: training.globalRestTime,
         exercises: catalog.exercises,
-        exerciseRefs: training.exerciseRefs.map((r) => ({ ...r })),
+        exerciseRefs: training.exerciseRefs.map((r) => normalizeGroupRef({ ...r })),
     };
 }
 
@@ -269,11 +327,20 @@ export function parseTrainingJson(raw: unknown): {
         if (typeof r.refId !== "string" || typeof r.exerciseId !== "string") {
             return { error: "Chaque référence doit avoir refId et exerciseId." };
         }
-        exerciseRefs.push({
-            refId: r.refId,
-            exerciseId: r.exerciseId,
-            ...(r.value !== undefined && r.value > 0 ? { value: r.value } : {}),
-        });
+        if (
+            r.series !== undefined &&
+            (!Number.isInteger(r.series) || r.series < 2)
+        ) {
+            return { error: "series invalide (entier >= 2 si présent)." };
+        }
+        exerciseRefs.push(
+            normalizeGroupRef({
+                refId: r.refId,
+                exerciseId: r.exerciseId,
+                ...(r.value !== undefined && r.value > 0 ? { value: r.value } : {}),
+                ...(r.series !== undefined && r.series >= 2 ? { series: r.series } : {}),
+            })
+        );
     }
 
     return {
@@ -307,7 +374,7 @@ export function applyGlobalCatalogImport(
         : { ...local.exercises };
 
     for (const def of Object.values(imported.exercises)) {
-        exercises[def.id] = { ...def };
+        exercises[def.id] = normalizeCatalogExercise(def);
     }
     return { exercises };
 }
@@ -318,8 +385,11 @@ export function applyTrainingImport(
     replaceRefs: boolean
 ): Training {
     const exerciseRefs = replaceRefs
-        ? payload.exerciseRefs.map((r) => ({ ...r }))
-        : [...local.exerciseRefs, ...payload.exerciseRefs.map((r) => ({ ...r }))];
+        ? payload.exerciseRefs.map((r) => normalizeGroupRef({ ...r }))
+        : [
+              ...local.exerciseRefs.map((r) => normalizeGroupRef({ ...r })),
+              ...payload.exerciseRefs.map((r) => normalizeGroupRef({ ...r })),
+          ];
 
     return {
         ...local,
@@ -330,7 +400,11 @@ export function applyTrainingImport(
 }
 
 export function exportCatalogToJson(catalog: GlobalCatalog): string {
-    return JSON.stringify({ exercises: catalog.exercises }, null, 2);
+    const exercises: Record<string, ExerciseDefinition> = {};
+    for (const [id, def] of Object.entries(catalog.exercises)) {
+        exercises[id] = normalizeCatalogExercise(def);
+    }
+    return JSON.stringify({ exercises }, null, 2);
 }
 
 export function exportTrainingToJson(training: Training): string {
@@ -338,7 +412,7 @@ export function exportTrainingToJson(training: Training): string {
         {
             name: training.name,
             globalRestTime: training.globalRestTime,
-            exerciseRefs: training.exerciseRefs,
+            exerciseRefs: training.exerciseRefs.map((r) => normalizeGroupRef(r)),
         },
         null,
         2

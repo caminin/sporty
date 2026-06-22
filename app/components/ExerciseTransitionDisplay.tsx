@@ -2,11 +2,14 @@
 
 import React from "react";
 import { ExerciseGroupBadge } from "./ExerciseGroupBadge";
+import { SeriesProgressBadge } from "./SeriesProgressBadge";
 
 interface ExerciseTransitionDisplayProps {
     exerciseName: string;
     group: string;
     countdown: number;
+    seriesIndex?: number;
+    seriesTotal?: number;
     onSkip?: () => void;
     onQuit?: () => void;
 }
@@ -15,12 +18,19 @@ export function ExerciseTransitionDisplay({
     exerciseName,
     group,
     countdown,
+    seriesIndex,
+    seriesTotal,
     onSkip,
-    onQuit
+    onQuit,
 }: ExerciseTransitionDisplayProps) {
+    const showSeries =
+        seriesTotal !== undefined &&
+        seriesTotal > 1 &&
+        seriesIndex !== undefined &&
+        seriesIndex > 0;
+
     return (
         <div className="h-screen flex flex-col items-center justify-center w-full px-4 overflow-hidden relative bg-orange-500 text-white font-display antialiased">
-            {/* Header */}
             <div className="flex items-center justify-between w-full p-6 z-10">
                 <div className="flex flex-col">
                     <h2 className="text-white/90 text-sm font-semibold tracking-wider uppercase">
@@ -39,20 +49,16 @@ export function ExerciseTransitionDisplay({
                 )}
             </div>
 
-            {/* Main content */}
             <main className="flex-1 flex flex-col items-center justify-center w-full overflow-hidden relative">
                 <div className="text-center z-10 w-full mb-8">
                     <h1 className="text-white text-4xl md:text-5xl font-extrabold tracking-tight leading-tight drop-shadow-md mb-4">
                         Préparez-vous !
                     </h1>
-                    <div className="text-white/80 text-lg mb-6">
-                        Prochain exercice dans...
-                    </div>
+                    <div className="text-white/80 text-lg mb-6">Prochain exercice dans...</div>
                 </div>
 
-                {/* Countdown timer */}
                 <div className="flex justify-center items-center py-2 z-10 w-full mb-8">
-                    <div className="tabular-nums font-black text-[12rem] sm:text-[16rem] leading-none tracking-tighter drop-shadow-lg select-none">
+                    <div className="tabular-nums font-black text-[10rem] sm:text-[14rem] leading-none tracking-tighter drop-shadow-lg select-none">
                         {countdown}
                     </div>
                 </div>
@@ -61,25 +67,26 @@ export function ExerciseTransitionDisplay({
                     seconde{countdown > 1 ? "s" : ""}
                 </div>
 
-                {/* Next exercise info */}
-                <div className="text-center z-10 w-full mb-8">
-                    <h2 className="text-white text-3xl md:text-4xl font-extrabold tracking-tight leading-tight drop-shadow-md mb-4">
+                <div className="text-center z-10 w-full mb-8 px-2">
+                    <h2 className="text-white text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight leading-tight drop-shadow-md mb-3 break-words">
                         {exerciseName}
                     </h2>
-                    <div className="mt-2">
+                    <div className="flex flex-col items-center gap-2">
                         <ExerciseGroupBadge group={group} />
+                        {showSeries && (
+                            <SeriesProgressBadge
+                                seriesIndex={seriesIndex}
+                                seriesTotal={seriesTotal}
+                            />
+                        )}
                     </div>
                 </div>
 
-                {/* Background icon */}
                 <div className="absolute inset-0 pointer-events-none opacity-10 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-[30rem]">
-                        timer
-                    </span>
+                    <span className="material-symbols-outlined text-[30rem]">timer</span>
                 </div>
             </main>
 
-            {/* Footer controls */}
             <footer className="w-full px-8 pb-12 pt-4 z-20">
                 <div className="flex items-center justify-center max-w-sm mx-auto w-full">
                     <button

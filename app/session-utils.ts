@@ -5,6 +5,10 @@ import { getMuscleGroupMeta, type MuscleGroupKey } from "./exercises/muscle-grou
 const STARTUP_SECONDS = 5;
 const SECONDS_PER_REP = 3;
 
+export function seriesRestDuration(globalRestTime: number): number {
+    return Math.max(1, Math.round(globalRestTime / 2));
+}
+
 function muscleGroupLabel(key: MuscleGroupKey): string {
     return getMuscleGroupMeta(key).label;
 }
@@ -12,8 +16,8 @@ function muscleGroupLabel(key: MuscleGroupKey): string {
 function collectResolved(
     view: WorkoutView,
     selectedRefIds?: Set<string>
-): Array<{ name: string; group: string; type: "time" | "reps"; value: number }> {
-    const items: Array<{ name: string; group: string; type: "time" | "reps"; value: number }> = [];
+): Array<{ name: string; group: string; type: "time" | "reps"; value: number; series: number }> {
+    const items: Array<{ name: string; group: string; type: "time" | "reps"; value: number; series: number }> = [];
     for (const ref of view.exerciseRefs) {
         if (selectedRefIds && !selectedRefIds.has(ref.refId)) continue;
         const ex = resolveRef(view.exercises, ref);
@@ -23,6 +27,7 @@ function collectResolved(
                 group: muscleGroupLabel(ex.muscleGroup),
                 type: ex.type,
                 value: ex.value,
+                series: ex.series,
             });
         }
     }
@@ -36,13 +41,25 @@ export function estimateSessionDuration(
     const selected = collectResolved(view, selectedIds);
     if (selected.length === 0) return 0;
 
+    const optimized = optimizeExerciseSequence(selected);
+    const intraRest = seriesRestDuration(view.globalRestTime);
     let total = 0;
-    for (const ex of selected) {
-        total += STARTUP_SECONDS;
+
+    for (let i = 0; i < optimized.length; i++) {
+        const ex = optimized[i];
         const value = Math.round(ex.value);
-        total += ex.type === "reps" ? value * SECONDS_PER_REP : value;
+        const series = ex.series ?? 1;
+
+        for (let s = 0; s < series; s++) {
+            total += STARTUP_SECONDS;
+            total += ex.type === "reps" ? value * SECONDS_PER_REP : value;
+
+            const isLastWorkStep = i === optimized.length - 1 && s === series - 1;
+            if (!isLastWorkStep) {
+                total += s < series - 1 ? intraRest : view.globalRestTime;
+            }
+        }
     }
-    total += (selected.length - 1) * view.globalRestTime;
     return total;
 }
 
@@ -56,22 +73,46 @@ export function formatDuration(seconds: number): string {
 
 export function buildSessionSteps(view: WorkoutView): SessionStep[] {
     const steps: SessionStep[] = [];
-    const restDuration = view.globalRestTime;
+    const interExerciseRest = view.globalRestTime;
+    const intraSeriesRest = seriesRestDuration(interExerciseRest);
     const allExercises = collectResolved(view);
     const optimizedExercises = optimizeExerciseSequence(allExercises);
 
     for (let i = 0; i < optimizedExercises.length; i++) {
         const ex = optimizedExercises[i];
         const value = Math.round(ex.value);
+        const series = ex.series ?? 1;
 
-        if (ex.type === "time") {
-            steps.push({ kind: "work", name: ex.name, group: ex.group, type: "time", duration: value });
-        } else {
-            steps.push({ kind: "work", name: ex.name, group: ex.group, type: "reps", reps: value });
-        }
+        for (let s = 0; s < series; s++) {
+            const seriesMeta =
+                series >= 2 ? { seriesIndex: s + 1, seriesTotal: series } : {};
+            if (ex.type === "time") {
+                steps.push({
+                    kind: "work",
+                    name: ex.name,
+                    group: ex.group,
+                    type: "time",
+                    duration: value,
+                    ...seriesMeta,
+                });
+            } else {
+                steps.push({
+                    kind: "work",
+                    name: ex.name,
+                    group: ex.group,
+                    type: "reps",
+                    reps: value,
+                    ...seriesMeta,
+                });
+            }
 
-        if (i < optimizedExercises.length - 1) {
-            steps.push({ kind: "rest", duration: restDuration });
+            const isLastWorkStep =
+                i === optimizedExercises.length - 1 && s === series - 1;
+            if (!isLastWorkStep) {
+                const restDuration =
+                    s < series - 1 ? intraSeriesRest : interExerciseRest;
+                steps.push({ kind: "rest", duration: restDuration });
+            }
         }
     }
 
@@ -91,12 +132,14 @@ export function encodeSession(steps: SessionStep[]): string {
 }
 
 export function optimizeExerciseSequence(
-    exercises: Array<{ name: string; group: string; type: "time" | "reps"; value: number }>
-): Array<{ name: string; group: string; type: "time" | "reps"; value: number }> {
-    if (exercises.length <= 1) return exercises;
+    exercises: Array<{ name: string; group: string; type: "time" | "reps"; value: number; series?: number }>
+): Array<{ name: string; group: string; type: "time" | "reps"; value: number; series: number }> {
+    if (exercises.length <= 1) {
+        return exercises.map((ex) => ({ ...ex, series: ex.series ?? 1 }));
+    }
 
-    const result: Array<{ name: string; group: string; type: "time" | "reps"; value: number }> = [];
-    const remainingExercises = [...exercises];
+    const result: Array<{ name: string; group: string; type: "time" | "reps"; value: number; series: number }> = [];
+    const remainingExercises = exercises.map((ex) => ({ ...ex, series: ex.series ?? 1 }));
     const groupLastUsed: Record<string, number> = {};
 
     const groupCounts: Record<string, number> = {};

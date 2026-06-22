@@ -34,6 +34,14 @@ describe('catalog and training ref actions', () => {
     expect(catalog.exercises.squat1.value).toBe(45);
   });
 
+  it('should update catalog default series', async () => {
+    const catalog = await updateCatalogExercise('squat1', { series: 3 });
+    expect(catalog.exercises.squat1.series).toBe(3);
+
+    const reset = await updateCatalogExercise('squat1', { series: 1 });
+    expect(reset.exercises.squat1.series).toBeUndefined();
+  });
+
   it('should add training ref without value override', async () => {
     const withPlank = await addCatalogExercise({
       name: 'Plank',

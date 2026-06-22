@@ -16,6 +16,8 @@ Create or update files under `exercice_list/` for import and Docker bundle reset
 - training name (for `entrainement-*.json`)
 - which catalog exercises to include (`refId`, `exerciseId`)
 - optional `globalRestTime` on the training file
+- optional `series` (integer ≥ 2) on a catalog `exercises` entry as the default repeat count in session
+- optional `series` (integer ≥ 2) on an `exerciseRefs` entry to override the catalog default
 - optional: extend `catalog.json` or templates `entrainement-global.json` (**Haut du corps**), `entrainement-dynamisme-jambes-mollets-core.json` (**Jambes**)
 
 Reject vague requests; ask clarifying questions first.
@@ -32,7 +34,8 @@ Reject vague requests; ask clarifying questions first.
       "name": "Nom",
       "type": "time",
       "value": 30,
-      "muscleGroup": "jambes"
+      "muscleGroup": "jambes",
+      "series": 3
     }
   }
 }
@@ -45,12 +48,13 @@ Reject vague requests; ask clarifying questions first.
   "name": "Nom affiché",
   "globalRestTime": 20,
   "exerciseRefs": [
-    { "refId": "ex-id", "exerciseId": "ex-id" }
+    { "refId": "ex-id", "exerciseId": "ex-id" },
+    { "refId": "ex-id-2", "exerciseId": "ex-id-2", "series": 3 }
   ]
 }
 ```
 
-No `exercises` or `groups` keys in training files. Every `exerciseId` MUST exist in `catalog.json`.
+No `exercises` or `groups` keys in training files. Every `exerciseId` MUST exist in `catalog.json`. Omit `series` on catalog entries and refs when the effective count is 1. Put `series` on the catalog for the default; on a ref only to override that default.
 
 ### Admin import (runtime)
 

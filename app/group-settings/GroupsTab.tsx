@@ -124,7 +124,7 @@ export default function TrainingsTab({
         if (value === catalogValue) return;
         startTransition(async () => {
             try {
-                const updated = await updateTrainingExerciseRef(selectedListId, refId, value);
+                const updated = await updateTrainingExerciseRef(selectedListId, refId, { value });
                 onViewChange(updated);
                 setError(null);
             } catch (e) {
@@ -137,11 +137,52 @@ export default function TrainingsTab({
         if (!selectedListId) return;
         startTransition(async () => {
             try {
-                const updated = await updateTrainingExerciseRef(selectedListId, refId, null);
+                const updated = await updateTrainingExerciseRef(selectedListId, refId, { value: null });
                 onViewChange(updated);
                 setError(null);
             } catch (e) {
                 setError(e instanceof Error ? e.message : 'Erreur de réinitialisation');
+            }
+        });
+    };
+
+    const handleRefSeriesBlur = (
+        refId: string,
+        catalogDefaultSeries: number,
+        currentEffective: number,
+        raw: string
+    ) => {
+        if (!selectedListId) return;
+        const series = parseInt(raw, 10);
+        if (isNaN(series) || series <= 0) return;
+        if (series === currentEffective) return;
+        startTransition(async () => {
+            try {
+                const updated = await updateTrainingExerciseRef(selectedListId, refId, {
+                    series:
+                        series === catalogDefaultSeries
+                            ? null
+                            : series >= 2
+                              ? series
+                              : null,
+                });
+                onViewChange(updated);
+                setError(null);
+            } catch (e) {
+                setError(e instanceof Error ? e.message : 'Erreur de mise à jour des séries');
+            }
+        });
+    };
+
+    const handleRefSeriesReset = (refId: string) => {
+        if (!selectedListId) return;
+        startTransition(async () => {
+            try {
+                const updated = await updateTrainingExerciseRef(selectedListId, refId, { series: null });
+                onViewChange(updated);
+                setError(null);
+            } catch (e) {
+                setError(e instanceof Error ? e.message : 'Erreur de réinitialisation des séries');
             }
         });
     };
@@ -304,7 +345,11 @@ export default function TrainingsTab({
                                     {placements.map(({ ref, resolved }) => {
                                         const catalogDef = catalog?.exercises[ref.exerciseId];
                                         const catalogValue = catalogDef?.value ?? resolved.value;
+                                        const catalogDefaultSeries = catalogDef?.series ?? 1;
                                         const hasOverride = ref.value !== undefined;
+                                        const effectiveSeries = resolved.series;
+                                        const hasSeriesOverride =
+                                            ref.series !== undefined && ref.series >= 2;
                                         return (
                                             <div
                                                 key={ref.refId}
@@ -321,6 +366,16 @@ export default function TrainingsTab({
                                                     </span>
                                                     {hasOverride && (
                                                         <span className="text-xs text-[#13ec5b] shrink-0">perso</span>
+                                                    )}
+                                                    {hasSeriesOverride && (
+                                                        <span className="text-xs text-blue-400 shrink-0">
+                                                            ×{effectiveSeries} perso
+                                                        </span>
+                                                    )}
+                                                    {!hasSeriesOverride && effectiveSeries > 1 && (
+                                                        <span className="text-xs text-neutral-400 shrink-0">
+                                                            ×{effectiveSeries}
+                                                        </span>
                                                     )}
                                                 </div>
                                                 <div className="flex items-center gap-2 shrink-0">
@@ -343,6 +398,24 @@ export default function TrainingsTab({
                                                     <span className="text-xs text-neutral-500 w-8">
                                                         {resolved.type === 'time' ? 'sec' : 'rep'}
                                                     </span>
+                                                    <input
+                                                        type="number"
+                                                        min={1}
+                                                        defaultValue={effectiveSeries}
+                                                        key={`${ref.refId}-series-${effectiveSeries}`}
+                                                        onBlur={(e) =>
+                                                            handleRefSeriesBlur(
+                                                                ref.refId,
+                                                                catalogDefaultSeries,
+                                                                effectiveSeries,
+                                                                e.target.value
+                                                            )
+                                                        }
+                                                        disabled={isPending}
+                                                        className="w-16 bg-neutral-700 border-none rounded-lg p-2 text-white text-sm"
+                                                        aria-label={`Séries pour ${resolved.name}`}
+                                                    />
+                                                    <span className="text-xs text-neutral-500 w-10">sér.</span>
                                                     {hasOverride && (
                                                         <button
                                                             type="button"
@@ -351,6 +424,16 @@ export default function TrainingsTab({
                                                             className="text-xs text-neutral-400 hover:text-white px-2 py-1"
                                                         >
                                                             Défaut
+                                                        </button>
+                                                    )}
+                                                    {hasSeriesOverride && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleRefSeriesReset(ref.refId)}
+                                                            disabled={isPending}
+                                                            className="text-xs text-neutral-400 hover:text-white px-2 py-1"
+                                                        >
+                                                            Sér. cat.
                                                         </button>
                                                     )}
                                                     <button

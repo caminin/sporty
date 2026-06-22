@@ -1,11 +1,12 @@
 ## ADDED Requirements
 
 ### Requirement: Export catalog and training separately
-The system SHALL support two separate admin export flows: **global catalog export** serializes `exercises` (with `muscleGroup`) from the **Exercices** tab; **training export** serializes `exerciseRefs` and optional `globalRestTime` from the **Entraînements** tab. Session `groups` export SHALL NOT exist.
+The system SHALL support two separate admin export flows: **global catalog export** serializes `exercises` (with `muscleGroup` and optional `series` only when > 1) from the **Exercices** tab; **training export** serializes `exerciseRefs` and optional `globalRestTime` from the **Entraînements** tab. Session `groups` export SHALL NOT exist.
 
 #### Scenario: Export catalog from Exercices tab
 - **WHEN** the admin triggers catalog export on the Exercices tab
 - **THEN** the clipboard or download contains `exercises` including `muscleGroup`
+- **THEN** each exercise includes `series` only when greater than 1
 - **THEN** `exerciseRefs` and `groups` are not included
 
 #### Scenario: Export training from Entraînements tab
@@ -42,11 +43,11 @@ When importing catalog JSON into an existing global catalog, the system SHALL su
 #### Scenario: Merge catalog by exercise id
 - **WHEN** the admin declines replacing all exercises (merge mode)
 - **THEN** imported definitions are merged by `exerciseId`
-- **THEN** existing training reference overrides (`value`) are preserved
+- **THEN** existing training reference overrides (`value`, `series`) are preserved
 
 #### Scenario: New exercise id from import
 - **WHEN** imported catalog contains an `exerciseId` absent locally in merge mode
-- **THEN** the definition is added to the global catalog
+- **THEN** the definition is added to the global catalog including optional `series` when ≥ 2
 
 #### Scenario: Conflicting exercise id
 - **WHEN** imported catalog contains an `exerciseId` already present with different fields in merge mode

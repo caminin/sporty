@@ -13,6 +13,7 @@ import {
     buildWorkoutView,
     getCatalogExerciseIdsUsedInTrainings,
     getEffectiveValue,
+    normalizeCatalogExercise,
 } from "./workout-config";
 
 function requireTrainingId(trainingId: string | undefined): string {
@@ -69,14 +70,17 @@ export async function addCatalogExercise(
     if (catalog.exercises[exerciseId]) {
         throw new Error(`Un exercice avec l'id '${exerciseId}' existe déjà`);
     }
-    catalog.exercises[exerciseId] = { id: exerciseId, ...exercise };
+    catalog.exercises[exerciseId] = normalizeCatalogExercise({
+        id: exerciseId,
+        ...exercise,
+    });
     await saveGlobalCatalog(catalog);
     return catalog;
 }
 
 export async function updateCatalogExercise(
     exerciseId: string,
-    updates: Partial<Pick<ExerciseDefinition, "name" | "type" | "value" | "muscleGroup">>,
+    updates: Partial<Pick<ExerciseDefinition, "name" | "type" | "value" | "muscleGroup" | "series">>,
     _trainingId?: string
 ): Promise<GlobalCatalog> {
     const catalog = await getGlobalCatalog();
@@ -89,6 +93,17 @@ export async function updateCatalogExercise(
         def.value = updates.value;
     }
     if (updates.muscleGroup !== undefined) def.muscleGroup = updates.muscleGroup;
+    if ("series" in updates) {
+        if (updates.series === undefined || updates.series === 1) {
+            delete def.series;
+        } else {
+            if (!Number.isInteger(updates.series) || updates.series < 2) {
+                throw new Error("Le nombre de séries doit être un entier >= 2");
+            }
+            def.series = updates.series;
+        }
+    }
+    catalog.exercises[exerciseId] = normalizeCatalogExercise(def);
     await saveGlobalCatalog(catalog);
     return catalog;
 }
@@ -144,10 +159,15 @@ export async function addExerciseToTraining(
     return buildWorkoutView(catalog, training);
 }
 
+export type UpdateTrainingExerciseRefInput = {
+    value?: number | null;
+    series?: number | null;
+};
+
 export async function updateTrainingExerciseRef(
     trainingId: string,
     refId: string,
-    valueOverride?: number | null
+    updates: UpdateTrainingExerciseRefInput
 ): Promise<WorkoutView> {
     const id = requireTrainingId(trainingId);
     const [catalog, training] = await Promise.all([
@@ -157,12 +177,27 @@ export async function updateTrainingExerciseRef(
     if (!training) throw new Error("Entraînement introuvable");
     const ref = training.exerciseRefs.find((r) => r.refId === refId);
     if (!ref) throw new Error(`Référence '${refId}' introuvable`);
-    if (valueOverride === null || valueOverride === undefined) {
-        delete ref.value;
-    } else {
-        if (valueOverride <= 0) throw new Error("La valeur doit être positive");
-        ref.value = valueOverride;
+
+    if ("value" in updates) {
+        if (updates.value === null || updates.value === undefined) {
+            delete ref.value;
+        } else {
+            if (updates.value <= 0) throw new Error("La valeur doit être positive");
+            ref.value = updates.value;
+        }
     }
+
+    if ("series" in updates) {
+        if (updates.series === null || updates.series === undefined || updates.series === 1) {
+            delete ref.series;
+        } else {
+            if (!Number.isInteger(updates.series) || updates.series < 2) {
+                throw new Error("Le nombre de séries doit être un entier >= 2");
+            }
+            ref.series = updates.series;
+        }
+    }
+
     await saveTraining(training);
     return buildWorkoutView(catalog, training);
 }

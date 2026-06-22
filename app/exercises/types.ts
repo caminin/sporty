@@ -19,6 +19,8 @@ export interface ExerciseDefinition {
     /** Duration in seconds if type="time", repetition count if type="reps" */
     value: number;
     muscleGroup: MuscleGroupKey;
+    /** Default repeat count in session; persisted only when ≥ 2 (default 1). */
+    series?: number;
 }
 
 /** Placement of a catalog exercise inside a training (optional value override). */
@@ -26,6 +28,8 @@ export interface GroupExerciseRef {
     refId: string;
     exerciseId: string;
     value?: number;
+    /** Repeat count in session; persisted only when ≥ 2 (default 1). */
+    series?: number;
 }
 
 /** Resolved placement for UI and session (effective value). */
@@ -35,6 +39,8 @@ export interface ResolvedExercise {
     name: string;
     type: ExerciseType;
     value: number;
+    /** Effective series count (default 1). */
+    series: number;
     /** Catalog muscle group — used as session group label */
     muscleGroup: MuscleGroupKey;
 }
@@ -63,9 +69,17 @@ export interface WorkoutView {
     exerciseRefs: GroupExerciseRef[];
 }
 
+/** Optional series position when an exercise runs multiple times in session. */
+export type SessionWorkSeriesMeta = {
+    seriesIndex?: number;
+    seriesTotal?: number;
+};
+
 export type SessionStep =
-    | { kind: "work"; name: string; group: string; type: "time"; duration: number }
-    | { kind: "work"; name: string; group: string; type: "reps"; reps: number }
+    | ({ kind: "work"; name: string; group: string; type: "time"; duration: number } & SessionWorkSeriesMeta)
+    | ({ kind: "work"; name: string; group: string; type: "reps"; reps: number } & SessionWorkSeriesMeta)
     | { kind: "rest"; duration: number };
+
+export type SessionWorkStep = Extract<SessionStep, { kind: "work" }>;
 
 export type SessionState = "running" | "paused" | "finished" | "preparing";

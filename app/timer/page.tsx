@@ -7,6 +7,7 @@ import { decodeSession } from "../session-utils";
 import { ExerciseGroupBadge } from "../components/ExerciseGroupBadge";
 import { NextExercisePreview } from "../components/NextExercisePreview";
 import { ExerciseTransitionDisplay } from "../components/ExerciseTransitionDisplay";
+import { SeriesProgressBadge, hasSeriesProgress } from "../components/SeriesProgressBadge";
 
 /* ─── Inner component (needs Suspense for useSearchParams) ────────────────── */
 
@@ -88,6 +89,9 @@ function TimerInner() {
 
     // Find next work step for preview
     const nextWorkStep = steps ? steps.slice(currentStepIndex + 1).find(s => s.kind === "work") : null;
+    const previousWorkStep = steps
+        ? [...steps.slice(0, currentStepIndex)].reverse().find((s) => s.kind === "work") ?? null
+        : null;
 
     // Initialise timeLeft whenever the step changes
     useEffect(() => {
@@ -309,9 +313,39 @@ function TimerInner() {
     const isReps = isWork && currentStep.type === "reps";
 
     const bgColorClass = isRest ? "bg-blue-600" : "bg-emerald-500";
-    const phaseLabel = isRest ? "Phase de repos" : "Work Interval";
-    const exerciseName = isWork ? currentStep.name : "Repos";
+
+    const isInterSeriesRest =
+        isRest &&
+        nextWorkStep?.kind === "work" &&
+        previousWorkStep?.kind === "work" &&
+        nextWorkStep.name === previousWorkStep.name &&
+        hasSeriesProgress(nextWorkStep) &&
+        nextWorkStep.seriesIndex > 1;
+
+    const phaseLabel = isInterSeriesRest && nextWorkStep?.kind === "work"
+        ? `Repos avant série ${nextWorkStep.seriesIndex}/${nextWorkStep.seriesTotal}`
+        : isRest
+          ? "Phase de repos"
+          : "Work Interval";
+
+    const exerciseName = isWork
+        ? currentStep.name
+        : isInterSeriesRest && previousWorkStep?.kind === "work"
+          ? previousWorkStep.name
+          : "Repos";
     const groupName = isWork ? currentStep.group : "Prépare-toi pour la suite";
+
+    const currentWorkStep = isWork ? currentStep : null;
+    const preparingWorkStep =
+        sessionState === "preparing" && currentStep.kind === "work" ? currentStep : null;
+
+    const isNextSeriesOfSameExercise =
+        nextWorkStep?.kind === "work" &&
+        ((isWork && nextWorkStep.name === currentStep.name && hasSeriesProgress(nextWorkStep)) ||
+            (isRest &&
+                previousWorkStep?.kind === "work" &&
+                nextWorkStep.name === previousWorkStep.name &&
+                hasSeriesProgress(nextWorkStep)));
 
     // ── Preparation screen ───────────────────────────────────────────────
     if (sessionState === "preparing") {
@@ -320,6 +354,8 @@ function TimerInner() {
                 exerciseName={exerciseName}
                 group={groupName}
                 countdown={preparationCountdown}
+                seriesIndex={preparingWorkStep?.seriesIndex}
+                seriesTotal={preparingWorkStep?.seriesTotal}
                 onQuit={handleFinish}
                 onSkip={() => {
                     console.log("⏭️ Préparation passée par l'utilisateur");
@@ -382,6 +418,13 @@ function TimerInner() {
     const displayedWorkStep = completedWorkSteps + (isWork ? 1 : 0);
     const progressText = isWork ? `${displayedWorkStep} / ${totalWorkSteps}` : "Repos";
 
+    const headerSeriesStep =
+        currentWorkStep && hasSeriesProgress(currentWorkStep)
+            ? currentWorkStep
+            : isInterSeriesRest && nextWorkStep?.kind === "work"
+              ? nextWorkStep
+              : null;
+
     return (
         <div
             className={`${bgColorClass} text-white font-display antialiased overflow-hidden h-screen flex flex-col transition-colors duration-500 ease-in-out`}
@@ -394,11 +437,17 @@ function TimerInner() {
                     </h2>
                     <span className="text-white/70 text-xs">{phaseLabel}</span>
                 </div>
-                <div className="flex items-center gap-2">
-                    {/* Progress indicator */}
+                <div className="flex items-center gap-2 flex-wrap justify-end">
                     <span className="text-white/80 text-sm font-bold bg-white/10 rounded-full px-3 py-1">
                         {progressText}
                     </span>
+                    {headerSeriesStep && (
+                        <SeriesProgressBadge
+                            seriesIndex={headerSeriesStep.seriesIndex}
+                            seriesTotal={headerSeriesStep.seriesTotal}
+                            variant="compact"
+                        />
+                    )}
                     <button
                         onClick={() => setIsAudioEnabled(a => !a)}
                         className="flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition-colors size-10 backdrop-blur-sm"
@@ -430,20 +479,35 @@ function TimerInner() {
 
             {/* ── Main content ── */}
             <main className="flex-1 flex flex-col items-center justify-center w-full px-4 overflow-hidden relative">
-                <div className="text-center z-10 w-full mb-4">
-                    <h1 className="text-white text-4xl md:text-5xl font-extrabold tracking-tight leading-tight drop-shadow-md">
+                <div className="text-center z-10 w-full mb-4 max-w-2xl mx-auto">
+                    <h1 className="text-white text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight leading-tight drop-shadow-md break-words px-2">
                         {exerciseName}
                     </h1>
                     {isWork && (
-                        <div className="mt-2">
+                        <div className="mt-3 flex flex-col items-center gap-2">
                             <ExerciseGroupBadge group={currentStep.group} />
+                            {hasSeriesProgress(currentStep) && (
+                                <SeriesProgressBadge
+                                    seriesIndex={currentStep.seriesIndex}
+                                    seriesTotal={currentStep.seriesTotal}
+                                />
+                            )}
+                        </div>
+                    )}
+                    {isInterSeriesRest && nextWorkStep?.kind === "work" && (
+                        <div className="mt-3 flex flex-col items-center gap-1">
+                            <SeriesProgressBadge
+                                seriesIndex={nextWorkStep.seriesIndex}
+                                seriesTotal={nextWorkStep.seriesTotal}
+                            />
+                            <p className="text-white/70 text-sm">Puis série {nextWorkStep.seriesIndex}/{nextWorkStep.seriesTotal}</p>
                         </div>
                     )}
                 </div>
 
                 <div className="flex justify-center items-center py-2 z-10 w-full">
                     <div
-                        className="tabular-nums font-black text-[10rem] sm:text-[14rem] leading-none tracking-tighter drop-shadow-lg select-none"
+                        className="tabular-nums font-black text-[9rem] sm:text-[14rem] leading-none tracking-tighter drop-shadow-lg select-none"
                         data-testid="timer-display"
                     >
                         {timerDisplay}
@@ -455,10 +519,13 @@ function TimerInner() {
 
                 {/* Next exercise preview */}
                 {nextWorkStep && (
-                    <div className="mt-4">
+                    <div className="mt-4 w-full px-2">
                         <NextExercisePreview
                             exerciseName={nextWorkStep.name}
                             group={nextWorkStep.group}
+                            seriesIndex={nextWorkStep.seriesIndex}
+                            seriesTotal={nextWorkStep.seriesTotal}
+                            isNextSeriesOfSameExercise={isNextSeriesOfSameExercise}
                         />
                     </div>
                 )}
