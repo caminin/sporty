@@ -35,8 +35,9 @@ export function normalizeExerciseDefinition(
 
     const muscleGroup = normalizeMuscleGroup(d.muscleGroup);
 
-    if (d.series !== undefined) {
-        if (!Number.isInteger(d.series) || d.series < 2) {
+    const series = d.series;
+    if (series != null) {
+        if (typeof series !== "number" || !Number.isInteger(series) || series < 2) {
             return null;
         }
     }
@@ -48,8 +49,8 @@ export function normalizeExerciseDefinition(
         value: d.value,
         muscleGroup,
     };
-    if (d.series !== undefined && d.series >= 2) {
-        def.series = d.series;
+    if (typeof series === "number" && series >= 2) {
+        def.series = series;
     }
     return def;
 }
