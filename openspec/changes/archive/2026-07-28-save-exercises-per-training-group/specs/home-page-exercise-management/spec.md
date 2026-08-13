@@ -1,12 +1,4 @@
-## ADDED Requirements
-
-### Requirement: Readable exercise names in session list
-On the homepage exercise list within each muscle-group block, exercise names SHALL be displayed without unnecessary truncation so that typical French titles remain readable on common mobile widths.
-
-#### Scenario: Long exercise title visible
-- **WHEN** an exercise name exceeds the width of one line
-- **THEN** the name wraps or uses available horizontal space
-- **THEN** the user can read the full title without opening another screen
+## MODIFIED Requirements
 
 ### Requirement: Homepage training selection
 The homepage SHALL let users choose among **entraînements** (trainings). Labels in French SHALL use **Entraînement** / **entraînements**. Exercise counts and time estimates SHALL resolve the active training refs against the global catalog. Muscle-group sections SHALL use distinct colors per `MuscleGroupKey` as specified in `muscle-group-home-colors`. When the active training changes, the homepage SHALL restore the exercise selection persisted for that training (not a global shared list).

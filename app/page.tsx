@@ -14,36 +14,9 @@ import { renderIconByName } from "./exercises/icons";
 import { GROUP_COLOR_STYLES, isGroupColorKey } from "./exercises/group-colors";
 import { getMuscleGroupColor } from "./exercises/muscle-groups";
 import type { MuscleGroupKey } from "./exercises/muscle-groups";
-
-const STORAGE_KEY = "sporty_session_selection";
+import { loadSelection, saveSelection } from "./session-selection-storage";
 
 const DEFAULT_STYLE = { colorClass: "bg-slate-100 text-slate-600", borderClass: "" };
-
-/* ─── localStorage helpers ───────────────────────────────────────────────── */
-
-function getAllRefIds(view: WorkoutView): Set<string> {
-    return new Set(view.exerciseRefs.map((r) => r.refId));
-}
-
-function loadSelection(view: WorkoutView): Set<string> {
-    try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return getAllRefIds(view);
-        const parsed: unknown = JSON.parse(raw);
-        if (!Array.isArray(parsed)) return getAllRefIds(view);
-        const allIds = getAllRefIds(view);
-        const valid = (parsed as string[]).filter((id) => allIds.has(id));
-        return new Set(valid);
-    } catch {
-        return getAllRefIds(view);
-    }
-}
-
-function saveSelection(selectedIds: Set<string>, view: WorkoutView) {
-    const allIds = getAllRefIds(view);
-    const toSave = [...selectedIds].filter((id) => allIds.has(id));
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
-}
 
 /* ─── Sub-components ─────────────────────────────────────────────────────── */
 
@@ -265,7 +238,7 @@ export default function BadmintonSessionPage() {
         try {
             const cfg = await getWorkoutView(selectedListId);
             setView(cfg);
-            setSelectedIds(loadSelection(cfg));
+            setSelectedIds(loadSelection(selectedListId, cfg));
         } catch (error) {
             console.error('Failed to load workout view:', error);
             setView(null);
@@ -281,7 +254,7 @@ export default function BadmintonSessionPage() {
             } else {
                 next.add(refId);
             }
-            saveSelection(next, view);
+            saveSelection(selectedListId, next, view);
             return next;
         });
     };

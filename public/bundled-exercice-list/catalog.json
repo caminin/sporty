@@ -41,7 +41,7 @@
       "id": "ab-3",
       "name": "Crunchs",
       "type": "reps",
-      "value": 50,
+      "value": 30,
       "muscleGroup": "abdos"
     },
     "ex-dynamisme-01": {
@@ -55,7 +55,7 @@
       "id": "ex-dynamisme-03",
       "name": "Split step rapide sur place",
       "type": "time",
-      "value": 25,
+      "value": 40,
       "muscleGroup": "jambes"
     },
     "ex-dynamisme-04": {
@@ -90,21 +90,21 @@
       "id": "ex-jambes-mollets-05",
       "name": "Pogos / petits sauts sur l'avant-pied",
       "type": "time",
-      "value": 20,
+      "value": 30,
       "muscleGroup": "mollets"
     },
     "ex-jambes-mollets-06": {
       "id": "ex-jambes-mollets-06",
       "name": "Sauts latéraux",
       "type": "reps",
-      "value": 20,
+      "value": 25,
       "muscleGroup": "mollets"
     },
     "ex-core-01": {
       "id": "ex-core-01",
       "name": "Gainage face",
       "type": "time",
-      "value": 70,
+      "value": 80,
       "muscleGroup": "abdos"
     },
     "ex-core-02": {
@@ -118,7 +118,7 @@
       "id": "ex-core-03",
       "name": "Gainage latéral",
       "type": "time",
-      "value": 45,
+      "value": 60,
       "muscleGroup": "abdos",
       "series": 2
     },
